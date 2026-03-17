@@ -4,7 +4,7 @@ import 'package:sahtek/models/content_model.dart';
 import 'package:sahtek/models/appointment_model.dart';
 import 'package:sahtek/services/appointment_service.dart';
 import 'package:sahtek/models/patient_model.dart';
-import 'package:sahtek/services/user_service.dart';
+import 'package:sahtek/features/auth/services/user_service.dart';
 import 'package:sahtek/models/medical_document_model.dart';
 import 'package:sahtek/models/ia_tracking_model.dart';
 import 'package:sahtek/models/availability_model.dart';

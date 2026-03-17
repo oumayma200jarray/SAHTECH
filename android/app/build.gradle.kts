@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.sahtek"
     compileSdk = 36
-    ndkVersion = "29.0.13846066"
+    ndkVersion = "29.0.14206865"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
