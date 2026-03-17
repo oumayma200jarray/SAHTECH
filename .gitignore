@@ -11,6 +11,7 @@ build/
 *.apk
 *.aab
 *.ipa
+.dart_tool/
 
 # IDE
 .idea/
@@ -44,3 +45,5 @@ coverage/
 *.key
 google-services.json
 GoogleService-Info.plist
+
+*.hprof
