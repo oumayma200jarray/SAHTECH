@@ -1,8 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
-/// Custom exception for uniform API error handling
 class ApiException implements Exception {
   final String message;
   final int statusCode;
@@ -13,7 +13,6 @@ class ApiException implements Exception {
   String toString() => 'ApiException: $message (Status: $statusCode)';
 }
 
-/// Centralized HTTP client for all API requests
 class HttpClient {
   final String baseUrl;
   final int timeoutDuration;
@@ -22,12 +21,10 @@ class HttpClient {
 
   HttpClient({
     required this.baseUrl,
-    this.timeoutDuration = 15,
+    this.timeoutDuration = 30,
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Token management
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ─── Token management ──────────────────────────────────────────────────────
 
   void setAuthToken(String token) {
     _authToken = token;
@@ -37,25 +34,20 @@ class HttpClient {
     _authToken = null;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Internal helpers
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ─── Internal helpers ──────────────────────────────────────────────────────
 
   Map<String, String> _getHeaders({bool requiresAuth = true}) {
     final Map<String, String> headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-
     if (requiresAuth && _authToken != null) {
       headers['Authorization'] = 'Bearer $_authToken';
     }
-
     return headers;
   }
 
   String _buildUrl(String endpoint) {
-    // If already a full URL, use as-is
     if (endpoint.startsWith('http')) return endpoint;
     final safeEndpoint = endpoint.startsWith('/') ? endpoint : '/$endpoint';
     return '$baseUrl$safeEndpoint';
@@ -76,7 +68,8 @@ class HttpClient {
     if (statusCode >= 200 && statusCode < 300) {
       return body;
     } else if (statusCode == 401) {
-      throw ApiException('Unauthorized: Invalid or expired token', statusCode: statusCode);
+      throw ApiException('Unauthorized: Invalid or expired token',
+          statusCode: statusCode);
     } else if (statusCode == 403) {
       throw ApiException('Forbidden: Access denied', statusCode: statusCode);
     } else if (statusCode == 404) {
@@ -90,12 +83,12 @@ class HttpClient {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // CRUD Operations
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ─── CRUD Operations ───────────────────────────────────────────────────────
 
-  /// GET request
-  Future<dynamic> get(String endpoint, {bool requiresAuth = true}) async {
+  Future<dynamic> get(
+    String endpoint, {
+    bool requiresAuth = true,
+  }) async {
     final url = Uri.parse(_buildUrl(endpoint));
     try {
       debugPrint('🌐 GET: $url');
@@ -109,8 +102,12 @@ class HttpClient {
     }
   }
 
-  /// POST request
-  Future<dynamic> post(String endpoint, {Map<String, dynamic>? data, bool requiresAuth = true}) async {
+  /// renamed `data` to `body` to match service calls
+  Future<dynamic> post(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    bool requiresAuth = true,
+  }) async {
     final url = Uri.parse(_buildUrl(endpoint));
     try {
       debugPrint('🌐 POST: $url');
@@ -118,7 +115,7 @@ class HttpClient {
           .post(
             url,
             headers: _getHeaders(requiresAuth: requiresAuth),
-            body: data != null ? jsonEncode(data) : null,
+            body: body != null ? jsonEncode(body) : null,
           )
           .timeout(Duration(seconds: timeoutDuration));
       return _processResponse(response);
@@ -128,8 +125,11 @@ class HttpClient {
     }
   }
 
-  /// PUT request
-  Future<dynamic> put(String endpoint, {Map<String, dynamic>? data, bool requiresAuth = true}) async {
+  Future<dynamic> put(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    bool requiresAuth = true,
+  }) async {
     final url = Uri.parse(_buildUrl(endpoint));
     try {
       debugPrint('🌐 PUT: $url');
@@ -137,7 +137,7 @@ class HttpClient {
           .put(
             url,
             headers: _getHeaders(requiresAuth: requiresAuth),
-            body: data != null ? jsonEncode(data) : null,
+            body: body != null ? jsonEncode(body) : null,
           )
           .timeout(Duration(seconds: timeoutDuration));
       return _processResponse(response);
@@ -147,8 +147,11 @@ class HttpClient {
     }
   }
 
-  /// PATCH request
-  Future<dynamic> patch(String endpoint, {Map<String, dynamic>? data, bool requiresAuth = true}) async {
+  Future<dynamic> patch(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    bool requiresAuth = true,
+  }) async {
     final url = Uri.parse(_buildUrl(endpoint));
     try {
       debugPrint('🌐 PATCH: $url');
@@ -156,7 +159,7 @@ class HttpClient {
           .patch(
             url,
             headers: _getHeaders(requiresAuth: requiresAuth),
-            body: data != null ? jsonEncode(data) : null,
+            body: body != null ? jsonEncode(body) : null,
           )
           .timeout(Duration(seconds: timeoutDuration));
       return _processResponse(response);
@@ -166,14 +169,56 @@ class HttpClient {
     }
   }
 
-  /// DELETE request
-  Future<dynamic> delete(String endpoint, {bool requiresAuth = true}) async {
+  Future<dynamic> delete(
+    String endpoint, {
+    bool requiresAuth = true,
+  }) async {
     final url = Uri.parse(_buildUrl(endpoint));
     try {
       debugPrint('🌐 DELETE: $url');
       final response = await http
           .delete(url, headers: _getHeaders(requiresAuth: requiresAuth))
           .timeout(Duration(seconds: timeoutDuration));
+      return _processResponse(response);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Network error: $e');
+    }
+  }
+
+  /// multipart POST for file uploads (images, PDFs, videos)
+  Future<dynamic> uploadFile(
+    String endpoint, {
+    required File file,
+    required String fieldName, // 'file' for image upload
+    Map<String, String>? fields, // extra form fields if needed
+    bool requiresAuth = true,
+  }) async {
+    final url = Uri.parse(_buildUrl(endpoint));
+    try {
+      debugPrint('🌐 UPLOAD: $url');
+
+      final request = http.MultipartRequest('POST', url);
+
+      // add auth header
+      if (requiresAuth && _authToken != null) {
+        request.headers['Authorization'] = 'Bearer $_authToken';
+      }
+
+      // add extra fields if any
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
+      // attach the file
+      request.files.add(
+        await http.MultipartFile.fromPath(fieldName, file.path),
+      );
+
+      final streamedResponse = await request.send()
+          .timeout(Duration(seconds: timeoutDuration));
+      final response = await http.Response.fromStream(streamedResponse);
+
       return _processResponse(response);
     } catch (e) {
       if (e is ApiException) rethrow;

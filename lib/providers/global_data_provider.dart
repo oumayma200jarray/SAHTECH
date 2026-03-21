@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sahtek/features/auth/services/auth_service.dart';
 import 'package:sahtek/models/content_model.dart';
 import 'package:sahtek/models/appointment_model.dart';
 import 'package:sahtek/services/appointment_service.dart';
 import 'package:sahtek/models/patient_model.dart';
-import 'package:sahtek/features/auth/services/user_service.dart';
 import 'package:sahtek/models/medical_document_model.dart';
 import 'package:sahtek/models/ia_tracking_model.dart';
 import 'package:sahtek/models/availability_model.dart';
@@ -13,10 +13,10 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GlobalDataProvider extends ChangeNotifier {
-  final UserService _userService = UserService();
+  final AuthService _userService = AuthService();
   // Informations globales du patient
-  PatientProfile _profile = PatientProfile.empty();
-  PatientProfile get profile => _profile;
+  PatientModel _profile = PatientModel.empty();
+  PatientModel get profile => _profile;
 
   // Membre sélectionné pour les exercices
   String membreSelectionne = ''; // Valeur par défaut
@@ -113,7 +113,7 @@ class GlobalDataProvider extends ChangeNotifier {
     double? pPoids,
     String? pEmail,
     String? pPhone,
-    String? pHistory,
+    List<MedicalDocument>? pHistory,
   }) {
     _profile = _profile.copyWith(
       fullName: "$pPrenom $pNom",
@@ -121,18 +121,18 @@ class GlobalDataProvider extends ChangeNotifier {
       weight: pPoids,
       email: pEmail,
       phone: pPhone,
-      medicalHistory: pHistory,
+      medicalDocument: pHistory,
     );
     notifyListeners();
   }
 
   // Mettre à jour le profil (via Service)
-  Future<void> updateProfile(PatientProfile newProfile) async {
-    _profile = newProfile;
-    notifyListeners();
-    // Appel asynchrone au service pour simuler la sauvegarde
-    await _userService.updateProfile(newProfile);
-  }
+  // Future<void> updateProfile(PatientModel newProfile) async {
+  //   _profile = newProfile;
+  //   notifyListeners();
+  //   // Appel asynchrone au service pour simuler la sauvegarde
+  //   await _userService.updateProfile(newProfile);
+  // }
 
   // Liste des documents du dossier médical (Commence à zéro selon audio)
   final List<MedicalDocument> _medicalDocuments = [];

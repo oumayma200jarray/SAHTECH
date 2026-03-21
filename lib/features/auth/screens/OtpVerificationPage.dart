@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
+import 'package:provider/provider.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:sahtek/features/auth/controllers/otp_controller.dart';
 
 class OtpVerificationPage extends StatefulWidget {
   const OtpVerificationPage({super.key});
@@ -13,18 +14,16 @@ class OtpVerificationPage extends StatefulWidget {
 }
 
 class _OtpVerificationPageState extends State<OtpVerificationPage> {
-  // Configuration OTP
-  static const int otpLength = 4;
+  static const int otpLength = 6; // changed to 6 to match backend
   static const int initialSeconds = 59;
 
-  // Etat de la page
   String _otpCode = '';
-  bool _isVerifying = false;
   int _remainingSeconds = initialSeconds;
   Timer? _timer;
+  String? userId; // received from signin page
+  String? email; // 👈 add this to store email for resending OTP
 
-  // Etats dérivés pour activer/désactiver les actions UI
-  bool get _canVerify => _otpCode.length == otpLength && !_isVerifying;
+  bool get _canVerify => _otpCode.length == otpLength;
   bool get _canResend => _remainingSeconds == 0;
 
   @override
@@ -34,16 +33,22 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map?;
+    userId = args?['userId'];
+    email = args?['email'];
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
   }
 
   void _startTimer() {
-    // Redémarre le compte à rebours à chaque ouverture/renvoi de code
     _timer?.cancel();
     setState(() => _remainingSeconds = initialSeconds);
-
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds <= 1) {
         timer.cancel();
@@ -54,46 +59,6 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
     });
   }
 
-  Future<void> _verifyOtp() async {
-    // Evite un appel API invalide (code incomplet ou déjà en cours)
-    if (!_canVerify) return;
-
-    setState(() => _isVerifying = true);
-
-    try {
-      // TODO: Remplacer par l'appel API réel de vérification OTP
-      await Future.delayed(const Duration(milliseconds: 900));
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'code_verified_snack'.tr(namedArgs: {'code': _otpCode}),
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('verification_failed_snack'.tr())));
-    } finally {
-      if (mounted) setState(() => _isVerifying = false);
-    }
-  }
-
-  Future<void> _resendCode() async {
-    if (!_canResend) return;
-
-    // TODO: Remplacer par l'appel API réel de renvoi OTP
-    _startTimer();
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('new_code_sent_snack'.tr())));
-  }
-
   String _formatTimer(int seconds) {
     return seconds.toString().padLeft(2, '0');
   }
@@ -102,6 +67,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   Widget build(BuildContext context) {
     const primaryBlue = Color(0xFF2F6FED);
     const textGray = Color(0xFF8B97A8);
+    final otpController = Provider.of<OtpController>(context);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -139,24 +105,27 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
               const SizedBox(height: 28),
 
               OtpTextField(
-                // Composant de saisie OTP: 4 cases avec style de la maquette
                 numberOfFields: otpLength,
                 borderColor: const Color(0xFFE2E8F0),
                 focusedBorderColor: primaryBlue,
                 enabledBorderColor: const Color(0xFFE2E8F0),
                 showFieldAsBox: true,
                 borderRadius: BorderRadius.circular(10),
-                fieldWidth: 52,
+                fieldWidth: 45,
                 filled: true,
                 fillColor: const Color(0xFFF7F9FC),
                 onCodeChanged: (code) {
-                  // Mise à jour en temps réel pour activer le bouton Vérifier
                   setState(() => _otpCode = code.trim());
                 },
                 onSubmit: (verificationCode) {
-                  // Soumission automatique quand toutes les cases sont remplies
                   setState(() => _otpCode = verificationCode.trim());
-                  _verifyOtp();
+                  if (_canVerify && userId != null) {
+                    otpController.verifyOtp(
+                      userId: userId!,
+                      code: verificationCode,
+                      context: context,
+                    );
+                  }
                 },
               ),
 
@@ -171,13 +140,31 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 style: const TextStyle(fontSize: 12, color: textGray),
               ),
 
+              // show error if any
+              if (otpController.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    otpController.errorMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+
               const Spacer(),
 
-              // Le bouton est actif uniquement quand le code est complet
-              buttonC(
-                'verify_button'.tr(),
-                () => _canVerify ? _verifyOtp : null,
-              ),
+              otpController.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : buttonC(
+                      'verify_button'.tr(),
+                      _canVerify && userId != null
+                          ? () => otpController.verifyOtp(
+                              userId: userId!,
+                              code: _otpCode,
+                              context: context,
+                            )
+                          : () {},
+                    ),
 
               const SizedBox(height: 20),
               Row(
@@ -188,21 +175,36 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                     style: const TextStyle(fontSize: 12, color: textGray),
                   ),
                   InkWell(
-                    // Renvoi disponible seulement après expiration du timer
-                    onTap: _canResend ? _resendCode : null,
-                    child: Text(
-                      'resend_code'.tr(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: _canResend
-                            ? primaryBlue
-                            : const Color(0xFFB0B9C6),
-                      ),
-                    ),
+                    onTap: _canResend && !otpController.isResending
+                        ? () {
+                            _startTimer();
+                            otpController.resendOtp(
+                              userId: userId!,
+                              email: email!, // 👈 add this
+                              context: context,
+                            );
+                          }
+                        : null,
+                    child: otpController.isResending
+                        ? const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            'resend_code'.tr(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _canResend
+                                  ? primaryBlue
+                                  : const Color(0xFFB0B9C6),
+                            ),
+                          ),
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

@@ -1,41 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:sahtek/core/theme/InputDecoration.dart';
-import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:sahtek/features/auth/controllers/auth_controller.dart';
 
-//import 'package:pin_code_fields/pin_code_fields.dart';
-//import 'package:sahtech/GlobalController.dart';
 class Connexion extends StatefulWidget {
-  Connexion({super.key});
+  const Connexion({super.key});
 
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
   @override
   State<Connexion> createState() => _ConnexionState();
 }
 
 class _ConnexionState extends State<Connexion> {
-  final _formKey = GlobalKey<FormState>(); // ✅ Déclaration correcte
+  final _formKey = GlobalKey<FormState>();
   static const blue = Color.fromARGB(255, 13, 84, 242);
+
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  bool isPasswordVisible = false;
 
   Map<String, String> langageImages = {
     'fr': 'lib/assets/images/fr.png',
     'en': 'lib/assets/images/en.png',
   };
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
-      TextEditingController();
 
-  bool isPasswordVisible = false; //controler mot de passe
-  bool isConfirmPasswordVisible = false;
-
-  bool isEmailError = false;
-  bool isPasswordError = false;
-  bool isConfirmPasswordError = false;
-
-  // methode pour la visibilité de mot de passe
   void togglePasswordVisibility() {
     setState(() {
       isPasswordVisible = !isPasswordVisible;
@@ -46,12 +36,13 @@ class _ConnexionState extends State<Connexion> {
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
-    confirmPasswordController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final authController = Provider.of<AuthController>(context);
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -60,9 +51,7 @@ class _ConnexionState extends State<Connexion> {
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 leading: IconButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/inscription');
-                  },
+                  onPressed: () => Navigator.pushNamed(context, '/inscription'),
                   icon: const Icon(Icons.arrow_back_ios_rounded),
                 ),
                 trailing: IconButton(
@@ -144,8 +133,9 @@ class _ConnexionState extends State<Connexion> {
                                 if (v.isEmpty) return 'email_required'.tr();
                                 if (!RegExp(
                                   r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-                                ).hasMatch(v))
+                                ).hasMatch(v)) {
                                   return 'email_invalid'.tr();
+                                }
                                 return null;
                               },
                               controller: emailController,
@@ -175,15 +165,9 @@ class _ConnexionState extends State<Connexion> {
                                 final v = password?.trim() ?? '';
                                 if (v.isEmpty) return 'password_required'.tr();
                                 if (v.length < 6) return 'password_length'.tr();
-                                if (!RegExp(
-                                  r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)',
-                                ).hasMatch(v)) {
-                                  return 'password_complex'.tr();
-                                }
                                 return null;
                               },
                               controller: passwordController,
-                              keyboardType: TextInputType.visiblePassword,
                               obscureText: !isPasswordVisible,
                               decoration: Deco(
                                 null,
@@ -200,7 +184,6 @@ class _ConnexionState extends State<Connexion> {
                                 hintText: 'password_hint'.tr(),
                               ),
                             ),
-                            const SizedBox(height: 10),
                           ],
                         ),
                       ),
@@ -208,12 +191,8 @@ class _ConnexionState extends State<Connexion> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              '/OtpVerificationPage',
-                            );
-                          },
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/forgot-password'),
                           child: Text(
                             'forgot_password'.tr(),
                             style: const TextStyle(
@@ -223,11 +202,29 @@ class _ConnexionState extends State<Connexion> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      buttonC('login'.tr(), () {
-                        if (_formKey.currentState!.validate()) {
-                          Navigator.pushNamed(context, '/accueil');
-                        }
-                      }),
+
+                      // show error message if any
+                      if (authController.errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            authController.errorMessage!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+
+                      // show loading or button
+                      authController.isLoading
+                          ? const CircularProgressIndicator()
+                          : buttonC('login'.tr(), () {
+                              if (_formKey.currentState!.validate()) {
+                                authController.signIn(
+                                  email: emailController.text.trim(),
+                                  password: passwordController.text.trim(),
+                                  context: context,
+                                );
+                              }
+                            }),
                     ],
                   ),
                 ),

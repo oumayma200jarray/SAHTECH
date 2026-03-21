@@ -83,7 +83,7 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredSpecialists = _allSpecialists.where((spec) {
-        final nameMatches = spec.name.toLowerCase().contains(query);
+        final nameMatches = spec.fullName.toLowerCase().contains(query);
         final specialtyMatches = spec.specialty.toLowerCase().contains(query);
         final clinicMatches = spec.clinic.toLowerCase().contains(query);
         return nameMatches || specialtyMatches || clinicMatches;
@@ -210,7 +210,7 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
                           child: GestureDetector(
                             onTap: () {
                               // Action au clic sur un marqueur
-                              print("Clic sur : ${spec.name}");
+                              print("Clic sur : ${spec.fullName}");
                             },
                             child: Column(
                               children: [
@@ -229,7 +229,7 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    spec.name,
+                                    spec.fullName,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
@@ -461,7 +461,7 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
                       children: [
                         Expanded(
                           child: Text(
-                            spec.name,
+                            spec.fullName,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,

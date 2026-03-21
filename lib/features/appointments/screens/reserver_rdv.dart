@@ -162,7 +162,7 @@ class _ReserverRDVPageState extends State<ReserverRDVPage> {
             radius: 30,
             backgroundColor: const Color(0xFFE3EAFF),
             child: Text(
-              specialist.name.isNotEmpty ? specialist.name[0].toUpperCase() : 'S',
+              specialist.fullName.isNotEmpty ? specialist.fullName[0].toUpperCase() : 'S',
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -175,7 +175,7 @@ class _ReserverRDVPageState extends State<ReserverRDVPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(specialist.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0D54F2))),
+                Text(specialist.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0D54F2))),
                 Text('${specialist.specialty} - ${specialist.clinic}', style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Row(
@@ -294,7 +294,7 @@ class _ReserverRDVPageState extends State<ReserverRDVPage> {
               final provider = Provider.of<GlobalDataProvider>(context, listen: false);
               final newApp = AppointmentModel(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
-                specialistName: specialist.name,
+                specialistName: specialist.fullName,
                 specialty: specialist.specialty,
                 date: DateTime.parse(dates[selectedDateIndex]['fullDate']!),
                 time: selectedTime,
@@ -303,7 +303,7 @@ class _ReserverRDVPageState extends State<ReserverRDVPage> {
                 imageUrl: specialist.imageUrl,
               );
               provider.addAppointment(newApp);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("booking_confirmed_snack".tr(namedArgs: {'doctor': specialist.name}))));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("booking_confirmed_snack".tr(namedArgs: {'doctor': specialist.fullName}))));
               Navigator.of(context).pushNamedAndRemoveUntil('/score_constant', (route) => false);
             }, icon: Icons.calendar_today),
           ),

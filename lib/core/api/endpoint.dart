@@ -16,6 +16,7 @@ class EndPoint {
   static const String profile          = 'users/profile';
   static const String whoami           = 'users/whoami';
   static const String updateUser       = 'users/update-user';
+  static const String uploadImage = 'users/upload-image';
   static String deleteUser(String id)       => 'users/delete/$id';
   static String validateDoctor(String id)   => 'users/validate-doctor/$id';
   static String validateAdmin(String id)    => 'users/validate-admin/$id';

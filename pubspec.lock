@@ -228,7 +228,7 @@ packages:
     source: hosted
     version: "8.2.2"
   flutter_otp_text_field:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       name: flutter_otp_text_field
       sha256: e7e589dc51cde120d63da6db55f3cef618f5d013d12adba76137ca1a51ce1390

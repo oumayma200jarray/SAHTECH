@@ -114,7 +114,7 @@ class FavoritesPage extends StatelessWidget {
               '${doc.category} • ${DateFormat('dd MMM yyyy', context.locale.toString()).format(doc.date)}',
           imageUrl: '', // On utilisera une icône par défaut
           isDocument: true,
-          type: doc.type,
+          type: doc.type.toString(),
         );
       },
     );

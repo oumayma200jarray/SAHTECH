@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
+import 'package:sahtek/features/auth/controllers/auth_controller.dart';
+import 'package:sahtek/features/auth/controllers/otp_controller.dart';
 import 'package:sahtek/features/auth/screens/connexion.dart';
 import 'package:sahtek/features/auth/screens/inscription.dart';
 import 'package:sahtek/features/auth/screens/OtpVerificationPage.dart';
@@ -50,6 +52,8 @@ void main() async {
                 return provider;
               },
             ),
+            ChangeNotifierProvider(create: (_) => AuthController()), // 👈 add
+            ChangeNotifierProvider(create: (_) => OtpController()), // 👈 add
           ],
           child: const MyApp(),
         ),
@@ -73,7 +77,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/connexion': (context) => Connexion(),
         '/inscription': (context) => Inscription(),
-        '/OtpVerificationPage': (context) => OtpVerificationPage(),
+        '/otp-verification': (context) => const OtpVerificationPage(),
         '/accueil': (context) => AccueilPage(),
         '/selection_test_ia': (context) => SelectionTestIAPage(),
         '/preparation_test_ia': (context) => PreparationTestIAPage(),
@@ -94,7 +98,8 @@ class MyApp extends StatelessWidget {
         '/security_privacy': (context) => const SecurityPrivacyPage(),
         '/notifications': (context) => const NotificationsPage(),
         '/suivi_ia_direct': (context) => const SuiviIADirectPage(),
-        '/gestion_disponibilites': (context) => const GestionDisponibilitesPage(),
+        '/gestion_disponibilites': (context) =>
+            const GestionDisponibilitesPage(),
         '/specialiste_details': (context) => const SpecialisteDetailsPage(),
       },
     );

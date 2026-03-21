@@ -181,7 +181,7 @@ class MedicalFolderPage extends StatelessWidget {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: 'Doc #${provider.medicalDocuments.length + 1}',
       date: DateTime.now(),
-      type: provider.medicalDocuments.length % 2 == 0 ? 'PDF' : 'JPG',
+      type: provider.medicalDocuments.length % 2 == 0 ? DocumentType.pdf : DocumentType.image,
       category: randomCategory,
       fileUrl: '',
     );
@@ -222,7 +222,7 @@ class MedicalFolderPage extends StatelessWidget {
                   color: Colors.grey[50],
                   child: Center(
                     child: Icon(
-                      doc.type.toUpperCase() == 'PDF'
+                      doc.type == DocumentType.pdf
                           ? Icons.picture_as_pdf_outlined
                           : Icons.image_outlined,
                       color: Colors.grey[300],

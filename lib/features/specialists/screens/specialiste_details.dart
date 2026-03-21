@@ -45,7 +45,7 @@ class SpecialisteDetailsPage extends StatelessWidget {
                     radius: 60,
                     backgroundColor: const Color(0xFFE3EAFF),
                     child: Text(
-                      specialist.name.isNotEmpty ? specialist.name[0].toUpperCase() : 'S',
+                      specialist.fullName.isNotEmpty ? specialist.fullName[0].toUpperCase() : 'S',
                       style: const TextStyle(
                         fontSize: 40,
                         fontWeight: FontWeight.bold,
@@ -55,7 +55,7 @@ class SpecialisteDetailsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    specialist.name,
+                    specialist.fullName,
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0D54F2)),
                   ),
                   Text(
@@ -89,7 +89,7 @@ class SpecialisteDetailsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'specialist_bio_placeholder'.tr(namedArgs: {'name': specialist.name}),
+                    'specialist_bio_placeholder'.tr(namedArgs: {'name': specialist.fullName}),
                     style: TextStyle(fontSize: 14, color: Colors.grey[700], height: 1.5),
                   ),
                   const SizedBox(height: 24),

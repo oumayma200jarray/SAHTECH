@@ -1,8 +1,12 @@
+enum DocumentType {
+  pdf,
+  image,
+}
 class MedicalDocument {
   final String id;
   final String title;
   final DateTime date;
-  final String type; // 'PDF', 'Image'
+  final DocumentType type; // DocumentType.PDF, DocumentType.IMAGE
   final String category; // 'Radiographies', 'Prescriptions', etc.
   final String fileUrl;
 
@@ -20,7 +24,7 @@ class MedicalDocument {
       id: json['id'],
       title: json['title'],
       date: DateTime.parse(json['date']),
-      type: json['type'],
+      type: json['type']== 'pdf' ? DocumentType.pdf : DocumentType.image,
       category: json['category'],
       fileUrl: json['fileUrl'],
     );
@@ -31,7 +35,7 @@ class MedicalDocument {
       'id': id,
       'title': title,
       'date': date.toIso8601String(),
-      'type': type,
+      'type': type.name,
       'category': category,
       'fileUrl': fileUrl,
     };

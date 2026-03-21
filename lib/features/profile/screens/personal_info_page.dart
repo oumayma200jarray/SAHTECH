@@ -126,7 +126,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                         weight: double.tryParse(poidsController.text) ?? 0.0,
                         height: double.tryParse(tailleController.text) ?? 0.0,
                       );
-                  context.read<GlobalDataProvider>().updateProfile(newProfile);
+                  // context.read<GlobalDataProvider>().updateProfile(newProfile);
                   ScaffoldMessenger.of(
                     context,
                   ).showSnackBar(SnackBar(content: Text('changes_saved'.tr())));

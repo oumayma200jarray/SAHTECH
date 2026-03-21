@@ -386,7 +386,7 @@ class _InscriptionState extends State<Inscription> {
                             pPhone: telephoneController.text,
                             pTaille: double.tryParse(tailleController.text),
                             pPoids: double.tryParse(poidsController.text),
-                            pHistory: antecedentsController.text,
+                            pHistory: [],
                           );
 
                           Navigator.pushNamed(context, '/connexion');
