@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/models/dashboard_models.dart';
 import 'package:sahtek/features/dashboard/services/dashboard_services.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -436,7 +437,7 @@ class DashboardSpecialistePage extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.network(
-              p.imageUrl,
+              UrlHelper.fixImageUrl(p.imageUrl ?? ''),
               width: 48,
               height: 48,
               fit: BoxFit.cover,

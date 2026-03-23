@@ -1,10 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sahtek/core/services/storage_service.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String? _role;
+  String? _imageUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final role = await StorageService.getRole();
+    final imageUrl = await StorageService.getImageUrl();
+    setState(() {
+      _role = role;
+      _imageUrl = imageUrl;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,16 +67,22 @@ class ProfilePage extends StatelessWidget {
                       CircleAvatar(
                         radius: 50,
                         backgroundColor: Colors.blue.withOpacity(0.1),
-                        child: Text(
-                          profile.fullName.isNotEmpty
-                              ? profile.fullName[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
+                        backgroundImage:
+                            _imageUrl != null && _imageUrl!.isNotEmpty
+                            ? NetworkImage(UrlHelper.fixImageUrl(_imageUrl!))
+                            : null,
+                        child: _imageUrl == null || _imageUrl!.isEmpty
+                            ? Text(
+                                profile.fullName.isNotEmpty
+                                    ? profile.fullName[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              )
+                            : null,
                       ),
                       Positioned(
                         right: 0,
@@ -93,7 +124,9 @@ class ProfilePage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      'patient'.tr(),
+                      _role != null
+                          ? _role!.toLowerCase().tr()
+                          : 'patient'.tr(),
                       style: const TextStyle(
                         color: Colors.blue,
                         fontSize: 10,
@@ -142,11 +175,14 @@ class ProfilePage extends StatelessWidget {
 
             // Déconnexion
             TextButton.icon(
-              onPressed: () {
-                // Logique de déconnexion
-                Navigator.of(
+              onPressed: () async {
+                await StorageService.clearSession();
+                if (!context.mounted) return;
+                Navigator.pushNamedAndRemoveUntil(
                   context,
-                ).pushNamedAndRemoveUntil('/', (route) => false);
+                  '/',
+                  (route) => false,
+                );
               },
               icon: const Icon(Icons.logout, color: Colors.redAccent),
               label: Text(

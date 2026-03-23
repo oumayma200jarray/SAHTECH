@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/models/content_model.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:sahtek/features/content_library/services/exercise_service.dart';
@@ -266,7 +267,7 @@ class ExercicesZonePage extends StatelessWidget {
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: Image.network(
-                                  ex.imageUrl ?? '',
+                                  UrlHelper.fixImageUrl(ex.imageUrl ?? ''),
                                   width: 80,
                                   height: 80,
                                   fit: BoxFit.cover,
@@ -353,8 +354,10 @@ class ExercicesZonePage extends StatelessWidget {
                   Center(
                     child: buttonC('start_routine', () {
                       // Par défaut, on sélectionne le premier exercice pour le test
-                      Provider.of<GlobalDataProvider>(context, listen: false)
-                          .setExercise(exercices.first);
+                      Provider.of<GlobalDataProvider>(
+                        context,
+                        listen: false,
+                      ).setExercise(exercices.first);
                       Navigator.pushNamed(context, '/preparation_test_ia');
                     }),
                   ),

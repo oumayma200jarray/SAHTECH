@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:sahtek/core/services/auth_init_service.dart';
+import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:sahtek/features/auth/controllers/auth_controller.dart';
+import 'package:sahtek/features/auth/controllers/google_auth_controller.dart';
 import 'package:sahtek/features/auth/controllers/otp_controller.dart';
 import 'package:sahtek/features/auth/screens/connexion.dart';
 import 'package:sahtek/features/auth/screens/inscription.dart';
@@ -11,6 +14,7 @@ import 'package:sahtek/features/ia_tracking/screens/preparation_test_ia.dart';
 import 'package:sahtek/features/ia_tracking/screens/localisation_douleur.dart';
 import 'package:sahtek/features/content_library/screens/exercices_zone.dart';
 import 'package:sahtek/features/ia_tracking/screens/resultat_test_ia.dart';
+import 'package:sahtek/features/profile/controller/profile_controller.dart';
 import 'package:sahtek/features/specialists/screens/trouver_specialiste.dart';
 import 'package:sahtek/features/appointments/screens/reserver_rdv.dart';
 import 'package:sahtek/features/appointments/screens/mes_rdv_page.dart';
@@ -31,6 +35,7 @@ import 'package:sahtek/features/ia_tracking/screens/suivi_ia_direct.dart';
 import 'package:sahtek/features/appointments/screens/gestion_disponibilites_page.dart';
 import 'package:sahtek/features/specialists/screens/specialiste_details.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:sahtek/features/auth/controllers/signup_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,8 +57,11 @@ void main() async {
                 return provider;
               },
             ),
-            ChangeNotifierProvider(create: (_) => AuthController()), // 👈 add
-            ChangeNotifierProvider(create: (_) => OtpController()), // 👈 add
+            ChangeNotifierProvider(create: (_) => AuthController()),
+            ChangeNotifierProvider(create: (_) => OtpController()),
+            ChangeNotifierProvider(create: (_) => SignupController()),
+            ChangeNotifierProvider(create: (_) => ProfileController()),
+            ChangeNotifierProvider(create: (_) => GoogleAuthController()),
           ],
           child: const MyApp(),
         ),
@@ -73,8 +81,8 @@ class MyApp extends StatelessWidget {
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       locale: context.locale,
-      home: const Ppage(),
       routes: {
+        '/': (context) => const Ppage(),
         '/connexion': (context) => Connexion(),
         '/inscription': (context) => Inscription(),
         '/otp-verification': (context) => const OtpVerificationPage(),
@@ -115,13 +123,31 @@ class Ppage extends StatefulWidget {
 
 class _PpageState extends State<Ppage> {
   bool _tInPlace = false;
+  bool _sessionChecked = false;
 
   @override
   void initState() {
     super.initState();
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _tInPlace = true);
+      if (mounted) {
+        setState(() => _tInPlace = true);
+        // check session after animation
+        _checkSession();
+      }
     });
+  }
+
+  Future<void> _checkSession() async {
+    final accessToken = await StorageService.getAccessToken();
+
+    if (accessToken != null) {
+      // user has tokens → restore session silently
+      if (!mounted) return;
+      await AuthInitService.checkAndRestoreSession(context);
+    } else {
+      // no tokens → show login/signup buttons
+      if (mounted) setState(() => _sessionChecked = true);
+    }
   }
 
   static const _blue = Color.fromARGB(255, 13, 84, 242);
@@ -196,19 +222,82 @@ class _PpageState extends State<Ppage> {
                 style: TextStyle(fontSize: 14, color: _blue),
               ),
               const SizedBox(height: 20),
-
-              buttonC(
-                'Login'.tr(),
-                () => Navigator.pushNamed(context, '/connexion'),
-                width: 320,
-              ),
-              const SizedBox(height: 20),
-
-              buttonIn(
-                'Signup'.tr(),
-                () => Navigator.pushNamed(context, '/inscription'),
-                width: 320,
-              ),
+              if (!_sessionChecked)
+                const CircularProgressIndicator()
+              else
+                Column(
+                  children: [
+                    buttonC(
+                      'Login'.tr(),
+                      () => Navigator.pushNamed(context, '/connexion'),
+                      width: 320,
+                    ),
+                    const SizedBox(height: 20),
+                    buttonIn(
+                      'Signup'.tr(),
+                      () => Navigator.pushNamed(context, '/inscription'),
+                      width: 320,
+                    ),
+                    const SizedBox(height: 20),
+                    // divider
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 130,
+                          child: Divider(color: Colors.grey.shade400),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            'or'.tr(),
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 130,
+                          child: Divider(color: Colors.grey.shade400),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // Google button
+                    Consumer<GoogleAuthController>(
+                      builder: (context, googleController, _) {
+                        return googleController.isLoading
+                            ? const CircularProgressIndicator()
+                            : SizedBox(
+                                width: 320,
+                                height: 48,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => googleController
+                                      .signInWithGoogle(context: context),
+                                  icon: Image.asset(
+                                    'lib/assets/images/google_logo.png',
+                                    width: 20,
+                                    height: 20,
+                                  ),
+                                  label: Text(
+                                    'signin_with_google'.tr(),
+                                    style: const TextStyle(
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              );
+                      },
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sahtek/providers/global_data_provider.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
+import 'package:sahtek/features/profile/controller/profile_controller.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class PersonalInfoPage extends StatefulWidget {
@@ -11,152 +12,223 @@ class PersonalInfoPage extends StatefulWidget {
 }
 
 class _PersonalInfoPageState extends State<PersonalInfoPage> {
-  late TextEditingController nomController;
-  late TextEditingController emailController;
-  late TextEditingController phoneController;
-  late TextEditingController poidsController;
-  late TextEditingController tailleController;
+  late ProfileController _controller;
 
   @override
   void initState() {
     super.initState();
-    final profile = context.read<GlobalDataProvider>().profile;
-    nomController = TextEditingController(text: profile.fullName);
-    emailController = TextEditingController(text: profile.email);
-    phoneController = TextEditingController(text: profile.phone);
-    poidsController = TextEditingController(text: profile.weight.toString());
-    tailleController = TextEditingController(text: profile.height.toString());
+    _controller = ProfileController();
+    _controller.loadProfile();
   }
 
   @override
   void dispose() {
-    nomController.dispose();
-    emailController.dispose();
-    phoneController.dispose();
-    poidsController.dispose();
-    tailleController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.blue, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'personal_information'.tr(),
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundImage: NetworkImage(
-                    context.watch<GlobalDataProvider>().profile.imageUrl,
-                  ),
+    return ChangeNotifierProvider.value(
+      value: _controller,
+      child: Consumer<ProfileController>(
+        builder: (context, controller, _) {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios,
+                  color: Colors.blue,
+                  size: 20,
                 ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: GestureDetector(
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('photo_selector_simulation'.tr()),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.blue,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            _buildField('full_name_label'.tr(), nomController),
-            _buildField('email_label'.tr(), emailController),
-            _buildField('phone_label'.tr(), phoneController),
-            Row(
-              children: [
-                Expanded(child: _buildField('weight_kg'.tr(), poidsController)),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildField('height_cm'.tr(), tailleController),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: () {
-                  final newProfile = context
-                      .read<GlobalDataProvider>()
-                      .profile
-                      .copyWith(
-                        fullName: nomController.text,
-                        email: emailController.text,
-                        phone: phoneController.text,
-                        weight: double.tryParse(poidsController.text) ?? 0.0,
-                        height: double.tryParse(tailleController.text) ?? 0.0,
-                      );
-                  // context.read<GlobalDataProvider>().updateProfile(newProfile);
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('changes_saved'.tr())));
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'save_changes'.tr(),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: Text(
+                'personal_information'.tr(),
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            const SizedBox(height: 40),
-            _buildAccountManagement(),
-          ],
-        ),
+            body: controller.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        // Avatar
+                        Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 50,
+                              backgroundColor: Colors.blue.withOpacity(0.1),
+                              backgroundImage: controller.imageUrl.isNotEmpty
+                                  ? NetworkImage(
+                                      UrlHelper.fixImageUrl(
+                                        controller.imageUrl,
+                                      ),
+                                    )
+                                  : null,
+                              child: controller.imageUrl.isEmpty
+                                  ? Text(
+                                      controller.displayName.isNotEmpty
+                                          ? controller.displayName[0]
+                                                .toUpperCase()
+                                          : 'U',
+                                      style: const TextStyle(
+                                        fontSize: 40,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: GestureDetector(
+                                onTap: () {},
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.blue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Common fields
+                        _buildField(
+                          'full_name_label'.tr(),
+                          controller.fullNameController,
+                        ),
+                        _buildField(
+                          'email_label'.tr(),
+                          controller.emailController,
+                        ),
+                        _buildField(
+                          'phone_label'.tr(),
+                          controller.phoneController,
+                        ),
+                        _buildField(
+                          'address_label'.tr(),
+                          controller.addressController,
+                        ),
+
+                        // Patient-only fields
+                        if (controller.role == 'PATIENT') ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildField(
+                                  'age'.tr(),
+                                  controller.ageController,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _buildField(
+                                  'weight_kg'.tr(),
+                                  controller.weightController,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _buildField(
+                                  'height_cm'.tr(),
+                                  controller.heightController,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+
+                        // Specialist-only fields
+                        if (controller.role != 'PATIENT') ...[
+                          _buildField(
+                            'specialty'.tr(),
+                            controller.specialtyController,
+                          ),
+                          _buildField('bio'.tr(), controller.bioController),
+                          _buildField(
+                            'license_number'.tr(),
+                            controller.licenseNumberController,
+                            readOnly: true,
+                          ),
+                          _buildField(
+                            'clinic'.tr(),
+                            controller.clinicController,
+                          ),
+                          _buildField(
+                            'location'.tr(),
+                            controller.locationController,
+                          ),
+                        ],
+
+                        const SizedBox(height: 32),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: controller.isSaving
+                                ? null
+                                : () => controller.saveProfile(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: controller.isSaving
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    'save_changes'.tr(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                        _buildAccountManagement(),
+                      ],
+                    ),
+                  ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildField(String label, TextEditingController controller) {
+  Widget _buildField(
+    String label,
+    TextEditingController controller, {
+    bool readOnly = false,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -173,6 +245,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
           const SizedBox(height: 8),
           TextField(
             controller: controller,
+            readOnly: readOnly,
             style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               filled: true,
@@ -232,11 +305,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     return SizedBox(
       width: double.infinity,
       child: TextButton(
-        onPressed: () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('${"action".tr()} $title')));
-        },
+        onPressed: () {},
         style: TextButton.styleFrom(
           backgroundColor: bgColor,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),

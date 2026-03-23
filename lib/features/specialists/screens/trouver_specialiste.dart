@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/models/specialist_model.dart';
 import 'package:sahtek/features/specialists/services/specialist_service.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
@@ -439,7 +440,9 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
-                  spec.imageUrl, // Corrected to use spec.imageUrl directly
+                  UrlHelper.fixImageUrl(
+                    spec.imageUrl,
+                  ), // Corrected to use spec.imageUrl directly
                   width: 60,
                   height: 60,
                   fit: BoxFit.cover,

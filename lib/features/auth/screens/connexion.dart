@@ -51,7 +51,7 @@ class _ConnexionState extends State<Connexion> {
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 leading: IconButton(
-                  onPressed: () => Navigator.pushNamed(context, '/inscription'),
+                  onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back_ios_rounded),
                 ),
                 trailing: IconButton(

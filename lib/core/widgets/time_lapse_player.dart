@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 
 class TimeLapsePlayer extends StatefulWidget {
   final List<String> images;
@@ -68,7 +69,7 @@ class _TimeLapsePlayerState extends State<TimeLapsePlayer> {
         borderRadius: BorderRadius.circular(12),
         child: kIsWeb
             ? Image.network(
-                widget.images[_currentIndex],
+                UrlHelper.fixImageUrl(widget.images[_currentIndex]),
                 fit: BoxFit.cover,
                 gaplessPlayback: true,
                 errorBuilder: (context, error, stackTrace) => const Center(

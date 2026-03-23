@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/models/appointment_model.dart';
 import 'package:provider/provider.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
@@ -258,7 +259,7 @@ class _MesRdvPageState extends State<MesRdvPage> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
-                  app.imageUrl,
+                  UrlHelper.fixImageUrl(app.imageUrl),
                   width: 50,
                   height: 50,
                   fit: BoxFit.cover,
@@ -360,7 +361,7 @@ class _MesRdvPageState extends State<MesRdvPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.network(
-              app.imageUrl,
+              UrlHelper.fixImageUrl(app.imageUrl),
               width: 60,
               height: 60,
               fit: BoxFit.cover,

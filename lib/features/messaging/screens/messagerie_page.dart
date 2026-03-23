@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/models/dashboard_models.dart';
 import 'package:sahtek/features/dashboard/services/dashboard_services.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -179,7 +180,7 @@ class _MessageriePageState extends State<MessageriePage> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(
-                      msg.attachmentUrl!,
+                      UrlHelper.fixImageUrl(msg.attachmentUrl!),
                       height: 150,
                       width: double.infinity,
                       fit: BoxFit.cover,

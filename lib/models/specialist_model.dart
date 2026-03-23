@@ -1,10 +1,14 @@
 class SpecialistModel {
   final String userId;
   final String fullName;
+  final String email;
+  final String phone;
+  final String licenseNumber;
   final String gender;
   final String specialty;
   final String clinic;
   final String location;
+  final String bio;
   final double rating;
   final int reviewsCount;
   final String imageUrl;
@@ -16,6 +20,10 @@ class SpecialistModel {
   SpecialistModel({
     required this.userId,
     required this.fullName,
+    required this.email,
+    required this.phone,
+    required this.bio,
+    required this.licenseNumber,
     required this.gender,
     required this.specialty,
     required this.clinic,
@@ -33,7 +41,11 @@ class SpecialistModel {
     userId: json['userId'] ?? '',
     fullName: json['fullName'] ?? '',
     gender: json['gender'] ?? '',
+    email: json['email'] ?? '',
+    phone: json['phone'] ?? '',
     specialty: json['specialist']?['speciality'] ?? '',
+    licenseNumber: json['specialist']?['licenseNumber'] ?? '',
+    bio: json['specialist']?['bio'] ?? '',
     clinic: json['specialist']?['clinic'] ?? '',
     location: json['specialist']?['location'] ?? '',
     rating: (json['specialist']?['rating'] ?? 0.0).toDouble(),
@@ -48,16 +60,16 @@ class SpecialistModel {
 
 Map<String, dynamic> toJson() {
   return {
-    'userId': userId,
     'fullName': fullName,
-    'gender': gender,
+    'email': email,
+    'phone': phone,
+    'address': location,
     'imageUrl': imageUrl,
     'specialist': {
       'speciality': specialty,
       'clinic': clinic,
+      'bio':bio,
       'location': location,
-      'rating': rating,
-      'reviewsCount': reviewsCount,
       'latitude': latitude,
       'longitude': longitude,
     },

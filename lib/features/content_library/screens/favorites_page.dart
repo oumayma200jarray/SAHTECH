@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:sahtek/models/content_model.dart';
 import 'package:sahtek/models/medical_document_model.dart';
@@ -170,7 +171,7 @@ class FavoritesPage extends StatelessWidget {
                   )
                 : imageUrl.isNotEmpty
                 ? Image.network(
-                    imageUrl,
+                    UrlHelper.fixImageUrl(imageUrl),
                     width: 100,
                     height: 100,
                     fit: BoxFit.cover,

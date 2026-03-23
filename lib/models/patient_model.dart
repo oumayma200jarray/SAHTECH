@@ -5,6 +5,7 @@ class PatientModel {
   final String fullName;
   final String email;
   final String phone;
+  final String address;
   final int age;
   final String gender;
   final double weight;
@@ -19,6 +20,7 @@ class PatientModel {
     required this.gender,
     required this.email,
     required this.phone,
+    required this.address,
     required this.weight,
     required this.height,
     required this.medicalDocument,
@@ -26,17 +28,22 @@ class PatientModel {
   });
 
   factory PatientModel.fromJson(Map<String, dynamic> json) {
+    final patient = json['patient'] as Map<String, dynamic>?; // 👈 nullable
+
     return PatientModel(
       userId: json['userId'] ?? '',
       fullName: json['fullName'] ?? '',
-      age: json["patient"]['age'] ?? 0,
-      gender: json['gender'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
-      weight: (json["patient"]['weight'] ?? 0.0).toDouble(),
-      height: (json["patient"]['height'] ?? 0.0).toDouble(),
-      medicalDocument: (json["patient"]['medicalDocument'] ?? []).map((doc) => MedicalDocument.fromJson(doc)).toList(),
+      address: json['address'] ?? '',
+      gender: json['gender'] ?? '',
       imageUrl: json['imageUrl'] ?? 'https://i.pravatar.cc/150?u=jean',
+      age: patient?['age'] ?? 0, // 👈 safe null access
+      weight: (patient?['weight'] ?? 0.0).toDouble(),
+      height: (patient?['height'] ?? 0.0).toDouble(),
+      medicalDocument: (patient?['medicalDocuments'] as List? ?? [])
+          .map((doc) => MedicalDocument.fromJson(doc))
+          .toList(),
     );
   }
 
@@ -44,12 +51,12 @@ class PatientModel {
     return {
       'fullName': fullName,
       'email': email,
-      'age': age,
       'phone': phone,
+      'address': address, // 👈 add this - required by DTO
+      'age': age.toString(), // 👈 DTO expects string not int
       'weight': weight,
       'height': height,
-      'medicalDocument': medicalDocument,
-      'imageUrl': imageUrl,
+      // remove imageUrl - not in DTO, has its own endpoint
     };
   }
 
@@ -57,6 +64,8 @@ class PatientModel {
     String? fullName,
     String? email,
     String? phone,
+    String? address,
+    int? age,
     double? weight,
     double? height,
     List<MedicalDocument>? medicalDocument,
@@ -64,11 +73,12 @@ class PatientModel {
   }) {
     return PatientModel(
       userId: userId,
-      age: age ,
-      gender: gender ,
+      age: age ?? this.age,
+      gender: gender,
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,
       phone: phone ?? this.phone,
+      address: address ?? this.address,
       weight: weight ?? this.weight,
       height: height ?? this.height,
       medicalDocument: medicalDocument ?? this.medicalDocument,
@@ -84,6 +94,7 @@ class PatientModel {
       fullName: '',
       email: '',
       phone: '',
+      address: '',
       weight: 0.0,
       height: 0.0,
       medicalDocument: [

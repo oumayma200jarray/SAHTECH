@@ -14,14 +14,14 @@ class OtpVerificationPage extends StatefulWidget {
 }
 
 class _OtpVerificationPageState extends State<OtpVerificationPage> {
-  static const int otpLength = 6; // changed to 6 to match backend
+  static const int otpLength = 6;
   static const int initialSeconds = 59;
 
   String _otpCode = '';
   int _remainingSeconds = initialSeconds;
   Timer? _timer;
-  String? userId; // received from signin page
-  String? email; // 👈 add this to store email for resending OTP
+  String? userId;
+  String? email;
 
   bool get _canVerify => _otpCode.length == otpLength;
   bool get _canResend => _remainingSeconds == 0;
@@ -65,6 +65,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
+    print('User ID: $userId, Email: $email'); // Debug print
     const primaryBlue = Color(0xFF2F6FED);
     const textGray = Color(0xFF8B97A8);
     final otpController = Provider.of<OtpController>(context);
@@ -138,6 +139,12 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                       ),
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 12, color: textGray),
+              ),
+
+              Text(
+                'otp_sent_to $email'.tr(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: textGray),
               ),
 
               // show error if any

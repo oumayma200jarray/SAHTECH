@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sahtek/models/content_model.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:video_player/video_player.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 
 /// WIDGET 1 : [MediaCardWidget]
 /// Composant réutilisable pour afficher une carte de contenu "Média" (Vidéo ou Article).
@@ -36,7 +37,7 @@ class MediaCardWidget extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.network(
-                    item.imageUrl ?? '',
+                    UrlHelper.fixImageUrl(item.imageUrl ?? ''),
                     height: 130, // Hauteur fixe de l'image
                     width: double.infinity,
                     // L'image couvre tout l'espace alloué et est coupée si nécessaire, sans être déformée
@@ -287,7 +288,7 @@ class _TestCardWidgetState extends State<TestCardWidget> {
                         children: [
                           if (widget.item.imageUrl != null)
                             Image.network(
-                              widget.item.imageUrl!,
+                              UrlHelper.fixImageUrl(widget.item.imageUrl!),
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,

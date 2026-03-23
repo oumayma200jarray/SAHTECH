@@ -25,6 +25,16 @@ class AuthService {
     );
   }
 
+  static Future<Map<String, dynamic>> refreshToken({
+    required String refreshToken,
+  }) async {
+    return await EndPoint.client.post(
+      EndPoint.refreshToken,
+      body: {'refreshToken': refreshToken},
+      requiresAuth: false,
+    );
+  }
+
   static Future<void> sendOtp({
     required String userId,
     required String email,

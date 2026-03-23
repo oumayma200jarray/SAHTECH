@@ -9,23 +9,24 @@ class EndPoint {
   static final HttpClient client = HttpClient(baseUrl: _baseUrl);
 
   // ─── Auth / Users ────────────────────────────────────────────────────────────
-  static const String signup           = 'users/signup';
-  static const String signin           = 'users/signin';
-  static const String signinVerify     = 'users/signin/verify';
-  static const String refreshToken     = 'users/refresh-token';
-  static const String profile          = 'users/profile';
-  static const String whoami           = 'users/whoami';
-  static const String updateUser       = 'users/update-user';
+  static const String signup = 'users/signup';
+  static const String signin = 'users/signin';
+  static const String signinVerify = 'users/signin/verify';
+  static const String refreshToken = 'users/refresh-token';
+  static const String profile = 'users/profile';
+  static const String whoami = 'users/whoami';
+  static const String updateUser = 'users/update-user';
   static const String uploadImage = 'users/upload-image';
-  static String deleteUser(String id)       => 'users/delete/$id';
-  static String validateDoctor(String id)   => 'users/validate-doctor/$id';
-  static String validateAdmin(String id)    => 'users/validate-admin/$id';
+  static const String googleMobileCallback = 'users/auth/google/mobile';
+  static String deleteUser(String id) => 'users/delete/$id';
+  static String validateDoctor(String id) => 'users/validate-doctor/$id';
+  static String validateAdmin(String id) => 'users/validate-admin/$id';
 
   // ─── Google OAuth ─────────────────────────────────────────────────────────
-  static const String googleLogin      = 'users/auth/google';
-  static const String googleCallback   = 'users/auth/google/callback';
+  static const String googleLogin = 'users/auth/google';
+  static const String googleCallback = 'users/auth/google/callback';
 
   // ─── OTP ─────────────────────────────────────────────────────────────────
-  static const String otpSend          = 'otp/send';
-  static const String otpVerify        = 'otp/verify';
+  static const String otpSend = 'otp/send';
+  static const String otpVerify = 'otp/verify';
 }
