@@ -65,7 +65,6 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
-    print('User ID: $userId, Email: $email'); // Debug print
     const primaryBlue = Color(0xFF2F6FED);
     const textGray = Color(0xFF8B97A8);
     final otpController = Provider.of<OtpController>(context);

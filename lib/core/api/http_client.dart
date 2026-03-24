@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http_parser/http_parser.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -255,9 +256,30 @@ class HttpClient {
         request.headers['Authorization'] = 'Bearer $_authToken';
       }
       if (fields != null) request.fields.addAll(fields);
+
+      // detect mimetype from file extension 👈
+      final extension = file.path.split('.').last.toLowerCase();
+      final mimeTypes = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'heic': 'image/heic',
+        'gif': 'image/gif',
+      };
+      final contentType =
+          mimeTypes[extension] ?? 'image/jpeg'; // default to jpeg
+
       request.files.add(
-        await http.MultipartFile.fromPath(fieldName, file.path),
+        http.MultipartFile(
+          fieldName,
+          file.openRead(),
+          await file.length(),
+          filename: file.path.split('/').last,
+          contentType: MediaType.parse(contentType), // 👈 set correct mimetype
+        ),
       );
+
       final streamedResponse = await request.send().timeout(
         Duration(seconds: timeoutDuration),
       );

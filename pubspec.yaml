@@ -52,6 +52,8 @@ dependencies:
   flutter_otp_text_field: ^1.5.1+1
   google_sign_in_android: ^6.1.25
   google_sign_in: 6.3.0
+  image_picker: ^1.2.1
+  http_parser: ^4.1.2
 
 dev_dependencies:
   flutter_test:

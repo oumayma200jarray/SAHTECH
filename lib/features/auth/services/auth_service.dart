@@ -14,6 +14,10 @@ class AuthService {
     );
   }
 
+  static Future<void> deleteAccount() async {
+    await EndPoint.client.delete(EndPoint.deleteAccount, requiresAuth: true);
+  }
+
   static Future<Map<String, dynamic>> verifySignIn({
     required String userId,
     required String code,

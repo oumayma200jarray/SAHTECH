@@ -1,8 +1,11 @@
+import 'package:sahtek/core/config/app_config.dart';
+
 import 'http_client.dart';
 
 class EndPoint {
   // ─── Base URL ───────────────────────────────────────────────────────────────
-  static const String _baseUrl = 'http://10.0.2.2:3000';
+  // static const String _baseUrl = 'http://10.0.2.2:3000';
+  static const String _baseUrl = AppConfig.apiBaseUrl;
   // static const String _baseUrl = 'http://your-production-ip:3000';
 
   /// Single shared HTTP client instance for the whole app
@@ -13,6 +16,7 @@ class EndPoint {
   static const String signin = 'users/signin';
   static const String signinVerify = 'users/signin/verify';
   static const String refreshToken = 'users/refresh-token';
+  static const String deleteAccount = 'users/delete-account';
   static const String profile = 'users/profile';
   static const String whoami = 'users/whoami';
   static const String updateUser = 'users/update-user';
