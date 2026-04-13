@@ -9,6 +9,8 @@ import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:sahtek/models/appointment_model.dart';
 import 'package:easy_localization/easy_localization.dart';
 
+import 'package:sahtek/features/dashboard/services/dashboard_services.dart';
+
 class AccueilPage extends StatelessWidget {
   const AccueilPage({super.key});
 
@@ -21,7 +23,9 @@ class AccueilPage extends StatelessWidget {
         return data.map((json) => ContentModel.fromJson(json)).toList();
       } catch (e) {
         debugPrint('Erreur chargement vidéos (Backend non prêt?): $e');
-        return []; // Fallback temporaire
+        // Fallback: Récupérer depuis les documents récents du spécialiste
+        final recentDocs = await SpecialistDashboardService.getRecentDocuments();
+        return recentDocs.where((doc) => doc.videoUrl != null && doc.videoUrl!.isNotEmpty).toList();
       }
     }
 
@@ -32,7 +36,9 @@ class AccueilPage extends StatelessWidget {
         return data.map((json) => ContentModel.fromJson(json)).toList();
       } catch (e) {
         debugPrint('Erreur chargement articles (Backend non prêt?): $e');
-        return []; // Fallback temporaire
+        // Fallback: Récupérer depuis les documents récents du spécialiste
+        final recentDocs = await SpecialistDashboardService.getRecentDocuments();
+        return recentDocs.where((doc) => doc.videoUrl == null || doc.videoUrl!.isEmpty).toList();
       }
     }
 

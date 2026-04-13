@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:sahtek/core/api/endpoint.dart';
 import 'package:sahtek/models/dashboard_models.dart';
+import 'package:sahtek/models/content_model.dart';
 
 class AdminService {
   /// Récupère les statistiques globales pour l'administrateur
@@ -86,5 +88,49 @@ class SpecialistDashboardService {
         imageUrl: 'https://i.pravatar.cc/150?u=marie',
       ),
     ];
+  }
+
+  // --- NOUVELLES FONCTIONNALITÉS ---
+  static final List<ContentModel> _mockedRecentDocuments = [
+    ContentModel(
+      id: 'doc1',
+      title: 'Comprendre l\'arthrose du genou',
+      videoUrl: 'https://example.com/video1.mp4',
+    ),
+    ContentModel(
+      id: 'doc2',
+      title: 'Exercices d\'épaule (Niveau 1)',
+      videoUrl: null, // Article
+    ),
+  ];
+
+  static Future<List<ContentModel>> getRecentDocuments() async {
+    try {
+      final List<dynamic> data = await EndPoint.client.get('/specialist/documents/recent');
+      return data.map((item) => ContentModel.fromJson(item)).toList();
+    } catch (_) {}
+    return _mockedRecentDocuments; // Restitution de mock
+  }
+
+  static Future<bool> publishDocument({
+    required String title,
+    required String description,
+    required String type,
+    required File file,
+  }) async {
+    // Dans une version réelle, on utiliserait MultipartRequest
+    await Future.delayed(const Duration(seconds: 1)); // Simule l'upload
+
+    final newDoc = ContentModel(
+      id: 'doc_${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      description: description,
+      videoUrl: type == 'Video' ? 'https://example.com/new_video.mp4' : null,
+    );
+
+    // Ajout local en tant que mock
+    _mockedRecentDocuments.insert(0, newDoc);
+
+    return true; // Succès
   }
 }

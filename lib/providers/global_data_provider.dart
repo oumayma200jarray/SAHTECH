@@ -9,6 +9,7 @@ import 'package:sahtek/models/medical_document_model.dart';
 import 'package:sahtek/models/ia_tracking_model.dart';
 import 'package:sahtek/models/availability_model.dart';
 import 'package:sahtek/services/availability_service.dart';
+import 'package:sahtek/features/specialists/services/specialist_service.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,8 +19,13 @@ class GlobalDataProvider extends ChangeNotifier {
   PatientModel _profile = PatientModel.empty();
   PatientModel get profile => _profile;
 
+  // Exercices assignés par le spécialiste
+  List<ContentModel> _assignedExercises = [];
+  List<ContentModel> get assignedExercises => _assignedExercises;
+
   // Membre sélectionné pour les exercices
   String membreSelectionne = ''; // Valeur par défaut
+
 
   // Contenu vu (Vidéos, Articles) - Pour les favoris dynamiques
   final List<ContentModel> _viewedContent = [];
@@ -149,8 +155,16 @@ class GlobalDataProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Récupérer les exercices assignés par le spécialiste
+  Future<void> fetchPatientExercises() async {
+    final exercises = await SpecialistService.fetchMyExercises();
+    _assignedExercises = exercises;
+    notifyListeners();
+  }
+
   // Mettre à jour le membre sélectionné
   void setMembre(String membre) {
+
     membreSelectionne = membre;
     notifyListeners();
   }

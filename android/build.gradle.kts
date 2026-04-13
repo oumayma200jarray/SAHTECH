@@ -13,10 +13,8 @@ subprojects {
     project.layout.buildDirectory.set(newSubprojectBuildDir)
 }
 
-subprojects {
-    project.evaluationDependsOn(":app")
-}
-
+// La dépendance d'évaluation est gérée automatiquement par Flutter ou doit être spécifiée
+// uniquement là où une dépendance réelle existe.
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

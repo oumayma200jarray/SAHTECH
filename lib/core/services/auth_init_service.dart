@@ -26,11 +26,16 @@ class AuthInitService {
       EndPoint.client.setAuthToken(accessToken);
       await EndPoint.client.get('users/whoami');
 
-      // token is still valid → go to home
+      // token is still valid → go to home or dashboard based on role
+      final role = await StorageService.getRole();
+      final targetRoute = (role != null && (role.toUpperCase() == 'SPECIALIST' || role.toUpperCase() == 'SPECIALISTE')) 
+          ? '/dashboard_specialiste' 
+          : '/accueil';
+
       if (!context.mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
-        '/accueil',
+        targetRoute,
         (route) => false,
       );
     } catch (e) {
@@ -52,10 +57,15 @@ class AuthInitService {
         // set new token in HttpClient
         EndPoint.client.setAuthToken(response['accessToken']);
 
+        final role = (await StorageService.getRole()) ?? '';
+        final targetRoute = (role.toUpperCase() == 'SPECIALIST' || role.toUpperCase() == 'SPECIALISTE') 
+            ? '/dashboard_specialiste' 
+            : '/accueil';
+
         if (!context.mounted) return;
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/accueil',
+          targetRoute,
           (route) => false,
         );
       } catch (e) {

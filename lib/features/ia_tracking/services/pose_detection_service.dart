@@ -5,7 +5,16 @@ class PoseDetectionService {
   late PoseDetector _poseDetector;
 
   PoseDetectionService() {
-    _poseDetector = PoseDetector(options: PoseDetectorOptions());
+    _poseDetector = PoseDetector(
+      options: PoseDetectorOptions(
+        // OPTIMISATION : PoseDetectionMode.stream est crucial pour le temps réel car il
+        // garde en mémoire les points de l'image précédente pour accélérer la détection (Tracking).
+        mode: PoseDetectionMode.stream,
+        // OPTIMISATION : PoseDetectionModel.base est le modèle standard. 
+        // Il est beaucoup plus rapide que 'accurate' tout en restant très précis pour la rééducation.
+        model: PoseDetectionModel.base,
+      ),
+    );
   }
 
   /// Traite une image provenant du flux caméra

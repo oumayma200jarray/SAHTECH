@@ -32,7 +32,7 @@ class TrackingController extends ChangeNotifier {
   void processPose(Pose pose) {
     if (_trackingData == null) return;
 
-    // Seuil de confiance (ML Kit likelihood)
+    // ÉTAPE B : Filtrage des données (Data Cleaning)
     const double minConfidence = 0.3;
 
     final lShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
@@ -50,7 +50,7 @@ class TrackingController extends ChangeNotifier {
     if (lShoulder.likelihood < minConfidence || lHip.likelihood < minConfidence)
       return;
 
-    // Calcul des angles pour les deux côtés
+    // ÉTAPE C : Transformation Mathématique et Géométrique
     final double lAngle = _calculateAngle(
       lHip,
       lShoulder,
@@ -62,58 +62,88 @@ class TrackingController extends ChangeNotifier {
       rWrist ?? rElbow ?? rShoulder,
     );
 
-    // On prend le maximum (le bras qui bouge)
-    final double angle = math.max(lAngle, rAngle);
-    _trackingData!.currentValue = angle;
+    // On identifie le côté actif
+    final bool isLeftActive = lAngle > rAngle;
+    final double currentAngle = math.max(lAngle, rAngle);
+    _trackingData!.currentValue = currentAngle;
 
-    // 1. Vérification Posture (Optionnel mais recommandé pour les exercices d'épaule)
-    final double shoulderSlope = (lShoulder.y - rShoulder.y).abs();
-    if (shoulderSlope > 100.0) {
-      // Tolérance élargie
-      _isComparisonCorrect = false;
-      _feedbackMessage = "Gardez les épaules bien droites";
-      notifyListeners();
-      return;
+    // --- CALCUL DES MÉTRIQUES DE QUALITÉ (Anti-Triche) ---
+
+    // 1. Inclinaison du tronc (Leaning Detection)
+    // On calcule le milieu des épaules et le milieu des hanches pour définir l'axe du corps
+    final double midShoulderX = (lShoulder.x + rShoulder.x) / 2;
+    final double midShoulderY = (lShoulder.y + rShoulder.y) / 2;
+    final double midHipX = (lHip.x + rHip.x) / 2;
+    final double midHipY = (lHip.y + rHip.y) / 2;
+    
+    // On calcule l'angle de cet axe par rapport à une verticale parfaite (0°)
+    // Si l'angle dépasse 15°, cela signifie que le patient triche en penchant son corps
+    final double trunkAngle = (math.atan2(midShoulderX - midHipX, midHipY - midShoulderY)).abs() * 180 / math.pi;
+    _trackingData!.trunkLeanAngle = trunkAngle;
+
+    // 2. Flexion du coude (Elbow Flexion Detection)
+    // Pour un exercice d'épaule, le coude doit être verrouillé (angle proche de 180°)
+    double elbowFlex = 180.0;
+    if (isLeftActive && lElbow != null && lWrist != null) {
+      elbowFlex = _calculateAngle(lShoulder, lElbow, lWrist);
+    } else if (!isLeftActive && rElbow != null && rWrist != null) {
+      elbowFlex = _calculateAngle(rShoulder, rElbow, rWrist);
     }
+    _trackingData!.elbowFlexion = elbowFlex;
 
+    // 3. Vérification Globale de Posture
+    bool postureWasCorrect = _isComparisonCorrect;
     _isComparisonCorrect = true;
 
-    // 3. Machine à états
+    // Si le patient dépasse les seuils de tolérance, on change le message de feedback
+    // et on empêche l'IA de donner un commentaire positif.
+    if (trunkAngle > 15.0) {
+      _isComparisonCorrect = false;
+      _feedbackMessage = "Redressez votre dos, vous penchez trop !";
+    } else if (elbowFlex < 150.0) { // Tolérance de 30° pour le coude
+      _isComparisonCorrect = false;
+      _feedbackMessage = "Gardez votre bras bien tendu.";
+    }
+
+    _trackingData!.isPostureCorrect = _isComparisonCorrect;
+
+    // ÉTAPE D : Gouvernance de l'Exercice (Machine à États Finis)
     switch (_state) {
       case TrackingState.waiting:
         if (!_isCalibrated) {
-          _calibratedRestAngle = angle;
+          _calibratedRestAngle = currentAngle;
           _isCalibrated = true;
         }
 
-        if (angle > _calibratedRestAngle + 25.0 || angle > 45.0) {
+        if (currentAngle > _calibratedRestAngle + 25.0 || currentAngle > 45.0) {
           _state = TrackingState.inProgress;
-          _feedbackMessage = "Montez le bras doucement";
         } else {
-          _feedbackMessage = "Levez le bras pour commencer";
+          _feedbackMessage = _isComparisonCorrect ? "Levez le bras pour commencer" : _feedbackMessage;
         }
         break;
 
       case TrackingState.inProgress:
-        if (angle >= _trackingData!.objective - 15.0) {
+        if (currentAngle >= _trackingData!.objective - 15.0) {
           _state = TrackingState.completed;
-          _feedbackMessage = "Objectif atteint ! Redescendez";
+          _feedbackMessage = _isComparisonCorrect ? "Objectif atteint ! Redescendez" : _feedbackMessage;
         } else {
-          _feedbackMessage = "Continuez à monter";
+          _feedbackMessage = _isComparisonCorrect ? "Montez encore un peu" : _feedbackMessage;
         }
         break;
 
       case TrackingState.completed:
-        if (angle < _calibratedRestAngle + 20.0 || angle < 35.0) {
+        if (currentAngle < _calibratedRestAngle + 20.0 || currentAngle < 35.0) {
           _state = TrackingState.waiting;
-          _feedbackMessage = "Mouvement terminé. Recommencez";
+          _feedbackMessage = "Bien ! Prêt pour la suivante ?";
         } else {
-          _feedbackMessage = "Redescendez votre bras";
+          _feedbackMessage = "Redescendez doucement";
         }
         break;
     }
 
-    notifyListeners();
+    if (postureWasCorrect != _isComparisonCorrect || _state != _state) {
+       notifyListeners();
+    }
   }
 
   double _calculateAngle(PoseLandmark p1, PoseLandmark p2, PoseLandmark p3) {
@@ -121,7 +151,7 @@ class TrackingController extends ChangeNotifier {
         (math.atan2(p3.y - p2.y, p3.x - p2.x) -
                 math.atan2(p1.y - p2.y, p1.x - p2.x))
             .abs();
-    double degrees = angle * 180.0 / 3.14159265;
+    double degrees = angle * 180.0 / math.pi;
     if (degrees > 180.0) degrees = 360.0 - degrees;
     return degrees;
   }

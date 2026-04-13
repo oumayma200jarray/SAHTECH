@@ -49,6 +49,9 @@ class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
             const SizedBox(height: 16),
             const Center(
               child: Text(
+                // ÉTAPE 0 : Conditionnement de l'environnement de capture (Dataset source)
+                // L'utilisateur positionne l'appareil pour garantir le minimum de bruit (Outliers) dans l'acquisition
+                // Cela aide le modèle de vision par ordinateur à avoir un meilleur contraste et une détection précise des landmarks
                 'Préparez votre espace',
                 style: TextStyle(
                   fontSize: 26,
@@ -137,6 +140,8 @@ class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
             const SizedBox(height: 12),
             Consumer<GlobalDataProvider>(
               builder: (context, provider, _) {
+                // ÉTAPE 1 : Chargement Dynamique de la démonstration
+                // On récupère l'url vidéo correspondant au mouvement attendu
                 final videoUrl = provider.selectedExercise?.videoUrl;
                 return Container(
                   height: 200,

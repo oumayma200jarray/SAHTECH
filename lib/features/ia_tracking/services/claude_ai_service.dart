@@ -27,11 +27,11 @@ class ClaudeAIService {
               'model': _kClaudeModel,
               'max_tokens': 80,
               'system':
-                  'Tu es un kinésithérapeute expert qui compare en temps réel le mouvement d\'un patient avec une vidéo de démonstration parfaite. '
-                  'Ta mission est de donner des conseils courts, motivants et correctifs. '
-                  'Si le patient est proche de l\'objectif, félicite-le par rapport à la vidéo. '
-                  'Si le mouvement est incorrect (épaules, bras), compare-le à la posture idéale de l\'instruction. '
-                  'Réponds UNIQUEMENT avec une phrase très courte (max 8 mots) pour la synthèse vocale. Langue: français.',
+                  'Tu es un kinésithérapeute expert. Ta mission est de donner des conseils courts, motivants et surtout CORRECTIFS. '
+                  'ATTENTION: Si le patient atteint l\'objectif d\'angle mais que sa posture est mauvaise (dos penché, coude plié), '
+                  'tu DOIS le corriger en priorité au lieu de le féliciter. '
+                  'Ne dis "Excellent" que si l\'angle EST ATTEINT ET que la posture est correcte. '
+                  'Réponds UNIQUEMENT avec une phrase très courte (max 8 mots). Langue: français.',
               'messages': [
                 {'role': 'user', 'content': _toAIPrompt(data)},
               ],
@@ -56,11 +56,16 @@ class ClaudeAIService {
     }
   }
 
+  // ÉTAPE E.1 : Feature Engineering - Encapsulation dynamique des variables de session vers NLP
+  // ÉTAPE E.1 : Feature Engineering - Encapsulation des données biomécaniques vers l'IA
+  // On passe désormais l'inclinaison et la flexion pour que l'IA sache si le patient triche.
   String _toAIPrompt(IATrackingData data) {
     return 'Exercice: ${data.title}. '
         'Objectif: ${data.objective}${data.unit}. '
         'Valeur actuelle: ${data.currentValue}${data.unit}. '
-        'Précision: ${data.precision}%. '
-        'Message actuel: ${data.guidanceText}.';
+        'Posture correcte: ${data.isPostureCorrect ? "Oui" : "Non"}. '
+        'Inclinaison buste: ${data.trunkLeanAngle.toStringAsFixed(1)}°. '
+        'Flexion coude: ${data.elbowFlexion.toStringAsFixed(1)}°. '
+        'Message système: ${data.guidanceText}.';
   }
 }

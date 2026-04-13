@@ -141,7 +141,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
               ),
 
               Text(
-                'otp_sent_to $email'.tr(),
+                'otp_sent_to'.tr(args: [email ?? '']),
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: textGray),
               ),

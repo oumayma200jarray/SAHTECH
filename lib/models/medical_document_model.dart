@@ -1,6 +1,7 @@
 enum DocumentType {
   pdf,
   image,
+  dicom,
 }
 class MedicalDocument {
   final String id;

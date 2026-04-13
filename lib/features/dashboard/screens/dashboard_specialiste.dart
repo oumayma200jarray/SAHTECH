@@ -4,14 +4,25 @@ import 'package:sahtek/models/dashboard_models.dart';
 import 'package:sahtek/features/dashboard/services/dashboard_services.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/core/widgets/planning_card.dart';
+import 'package:sahtek/core/widgets/specialist_bottom_nav_bar.dart';
+import 'package:sahtek/models/content_model.dart';
+import 'package:sahtek/features/dashboard/screens/nouvelle_publication.dart';
 
-class DashboardSpecialistePage extends StatelessWidget {
+class DashboardSpecialistePage extends StatefulWidget {
   const DashboardSpecialistePage({Key? key}) : super(key: key);
+
+  @override
+  State<DashboardSpecialistePage> createState() => _DashboardSpecialistePageState();
+}
+
+class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
+  List<bool> _isSelected = [true, false]; // [0] = Spécialiste, [1] = Patient
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
+      bottomNavigationBar: const SpecialistBottomNavBar(currentIndex: 0),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -31,7 +42,12 @@ class DashboardSpecialistePage extends StatelessWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildModeToggle(context),
+                    const SizedBox(height: 24),
                     _buildHeader(stats.doctorName),
+                    const SizedBox(height: 32),
+                    
+                    _buildNewPublicationButton(context),
                     const SizedBox(height: 32),
 
                     // Section Statistiques
@@ -114,6 +130,44 @@ class DashboardSpecialistePage extends StatelessWidget {
 
                     const SizedBox(height: 32),
 
+                    // Section Documents Récents
+                    _buildSectionHeader(
+                      'recent_documents'.tr(),
+                      onViewAll: () {},
+                    ),
+                    const SizedBox(height: 16),
+                    FutureBuilder<List<ContentModel>>(
+                      future: SpecialistDashboardService.getRecentDocuments(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return _buildEmptyState("no_recent_documents".tr());
+                        }
+                        return SizedBox(
+                          height: 140, // Reduced height for simple doc cards
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: snapshot.data!.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 16),
+                            itemBuilder: (context, index) {
+                              final doc = snapshot.data![index];
+                              return _buildDocumentCard(doc);
+                            },
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 32),
+
                     // Section Patients Récents
                     _buildSectionHeader(
                       'recent_patients'.tr(),
@@ -190,6 +244,116 @@ class DashboardSpecialistePage extends StatelessWidget {
         ),
         _buildCircleContainer(Icons.notifications_none_outlined),
       ],
+    );
+  }
+
+  Widget _buildModeToggle(BuildContext context) {
+    return Center(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: ToggleButtons(
+          isSelected: _isSelected,
+          onPressed: (int index) {
+            if (index == 1) {
+              Navigator.pushReplacementNamed(context, '/accueil');
+            } else {
+              setState(() {
+                _isSelected = [true, false];
+              });
+            }
+          },
+          borderRadius: BorderRadius.circular(12),
+          selectedColor: Colors.white,
+          fillColor: const Color(0xFF0D54F2),
+          color: Colors.grey[600],
+          constraints: BoxConstraints(
+            minHeight: 40,
+            minWidth: (MediaQuery.of(context).size.width - 50) / 2,
+          ),
+          children: [
+            Text('mode_specialist'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            Text('mode_patient'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNewPublicationButton(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const NouvellePublicationPage()),
+        );
+        // If a new publication was added, we can refresh the state
+        if (result == true) {
+          setState(() {});
+        }
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4A7DFF), Color(0xFF0D54F2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0D54F2).withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.add_to_photos, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'new_publication'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      'publish_article_video'.tr(),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white),
+          ],
+        ),
+      ),
     );
   }
 
@@ -486,6 +650,52 @@ class DashboardSpecialistePage extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentCard(ContentModel doc) {
+    bool isVideo = doc.videoUrl != null && doc.videoUrl!.isNotEmpty;
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey[100]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isVideo ? Icons.play_circle_fill : Icons.article,
+            color: isVideo ? Colors.redAccent : Colors.blueAccent,
+            size: 32,
+          ),
+          const Spacer(),
+          Text(
+            doc.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isVideo ? 'Vidéo' : 'Article',
+            style: TextStyle(color: Colors.grey[500], fontSize: 11),
           ),
         ],
       ),

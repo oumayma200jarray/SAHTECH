@@ -8,10 +8,10 @@ import 'package:sahtek/features/auth/controllers/otp_controller.dart';
 import 'package:sahtek/features/auth/screens/connexion.dart';
 import 'package:sahtek/features/auth/screens/inscription.dart';
 import 'package:sahtek/features/auth/screens/OtpVerificationPage.dart';
+import 'package:sahtek/features/content_library/screens/localisation_douleur.dart';
 import 'package:sahtek/features/home/screens/accueil.dart';
 import 'package:sahtek/features/ia_tracking/screens/selection_test_ia.dart';
 import 'package:sahtek/features/ia_tracking/screens/preparation_test_ia.dart';
-import 'package:sahtek/features/ia_tracking/screens/localisation_douleur.dart';
 import 'package:sahtek/features/content_library/screens/exercices_zone.dart';
 import 'package:sahtek/features/ia_tracking/screens/resultat_test_ia.dart';
 import 'package:sahtek/features/profile/controller/profile_controller.dart';
@@ -36,6 +36,10 @@ import 'package:sahtek/features/appointments/screens/gestion_disponibilites_page
 import 'package:sahtek/features/specialists/screens/specialiste_details.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/features/auth/controllers/signup_controller.dart';
+import 'package:sahtek/features/specialists/screens/ListPatients.dart';
+import 'package:sahtek/features/specialists/screens/publier_exercice.dart';
+import 'package:sahtek/features/specialists/screens/specialist_medical_folder_page.dart';
+import 'package:sahtek/features/specialists/screens/medical_category_detail_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,6 +113,12 @@ class MyApp extends StatelessWidget {
         '/gestion_disponibilites': (context) =>
             const GestionDisponibilitesPage(),
         '/specialiste_details': (context) => const SpecialisteDetailsPage(),
+        '/liste_patients': (context) => const ListePatientsPage(),
+        '/publier_exercice': (context) => const PublierExercicePage(),
+        '/specialist_medical_folder': (context) =>
+            const SpecialistMedicalFolderPage(),
+        '/medical_category_detail': (context) =>
+            const MedicalCategoryDetailPage(),
       },
     );
   }

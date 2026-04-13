@@ -113,6 +113,8 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     );
   }
 
+  // ÉTAPE A.1 : Acquisition Temporelle (Polling)
+  // Appelée dynamiquement chaque 1 seconde par _analysisTimer
   Future<void> _captureAndAnalyze() async {
     if (!_isCameraReady || _isProcessing || _cameraController == null) return;
     _isProcessing = true;
@@ -121,11 +123,18 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
       final image = await _cameraController!.takePicture();
       _sessionFrames.add(image.path);
 
+      // ÉTAPE A.2 : Encapsulation de la trame en InputImage (Format attendu par ML Kit)
+      // Ceci constitue le "Dataset dynamique" envoyé au modèle
       final inputImage = InputImage.fromFilePath(image.path);
+      
+      // ÉTAPE A.3 : Inférence du Modèle Deep Learning (Vision par Ordinateur Google ML Kit Pose Detection)
+      // Le modèle analyse l'image et retourne une liste de "Poses" (contenant 33 landmarks du corps)
       final poses = await _poseDetectionService.processImage(inputImage);
 
       if (mounted && poses.isNotEmpty) {
         setState(() => _poses = poses);
+        // ÉTAPE B : Interprétation Biomecanique
+        // On envoie la pose détectée au contrôleur pour calculer les angles (ex: angle de l'épaule)
         _trackingController.processPose(poses.first);
       }
     } catch (e) {
@@ -152,11 +161,15 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
   int _stagnationCount = 0;
   double _lastAngleForStagnation = 0.0;
 
+  // ÉTAPE E : Gérer les conditions d'exécution du NLP (Analyse Textuelle & Voix)
+  // Cette fonction détermine SI on doit appeler le modèle de langage (Claude)
   void _checkAndTriggerAI(IATrackingData data) {
     if (_isAILoading || _trackingController.state == TrackingState.completed)
       return;
 
-    // Détection de stagnation
+    // Détection de stagnation (L'utilisateur ne bouge plus)
+    // On vérifie si l'angle courant a varié de moins de 2 degrés depuis la dernière capture
+    // On ne compte la stagnation que si le mouvement a déjà commencé (angle > 10.0)
     if ((data.currentValue - _lastAngleForStagnation).abs() < 2.0 &&
         data.currentValue > 10.0) {
       _stagnationCount++;
@@ -201,6 +214,9 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     setState(() => _isAILoading = true);
     _lastAICallTime = DateTime.now();
 
+    // ÉTAPE E.2 : Exécution Terminale - Génération du Feedback via LLM
+    // Envoi des données contextuelles (angle, objectif, mouvement) à l'API Claude 3.5 Sonnet
+    // Le modèle est "prompté" avec un rôle de kinésithérapeute pour générer un retour pertinent.
     final feedback = await _claudeAIService.getFeedback(data);
 
     if (mounted) {
@@ -208,9 +224,12 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
         _isAILoading = false;
         if (_trackingController.state == TrackingState.completed) return;
 
+        // ÉTAPE E.3 : Restitution Audio (Text-to-Speech)
+        // On lit le texte généré par l'IA à voix haute pour guider l'utilisateur sans qu'il ait à regarder l'écran.
         if (feedback != null) {
           _flutterTts.speak(feedback);
         } else {
+          // Fallback sur le message généré par le contrôleur local
           _flutterTts.speak(_trackingController.feedbackMessage);
         }
       });

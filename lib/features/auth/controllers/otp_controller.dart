@@ -34,10 +34,15 @@ class OtpController extends ChangeNotifier {
       // set token for all future requests
       EndPoint.client.setAuthToken(response['accessToken']);
 
+      final savedRole = response['role']?.toString().toUpperCase() ?? '';
+      final targetRoute = (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE') 
+          ? '/dashboard_specialiste' 
+          : '/accueil';
+
       if (!context.mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
-        '/accueil',
+        targetRoute,
         (route) => false,
       );
     } catch (e) {

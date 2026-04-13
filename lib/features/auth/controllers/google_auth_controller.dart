@@ -43,10 +43,15 @@ class GoogleAuthController extends ChangeNotifier {
           (route) => false,
         );
       } else {
-        // existing user → go to home
+        // existing user → go to home or dashboard based on role
+        final savedRole = response['role']?.toString().toUpperCase() ?? 'PATIENT';
+        final targetRoute = (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE') 
+            ? '/dashboard_specialiste' 
+            : '/accueil';
+
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/accueil',
+          targetRoute,
           (route) => false,
         );
       }

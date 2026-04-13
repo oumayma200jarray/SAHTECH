@@ -38,50 +38,6 @@ class MedicalFolderPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'recent_documents'.tr(),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                    color: Colors.grey,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: Text(
-                    'see_all_docs'.tr(),
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 170, // Ajusté pour le bouton
-              child: Consumer<GlobalDataProvider>(
-                builder: (context, provider, child) {
-                  if (provider.medicalDocuments.isEmpty) {
-                    return _buildEmptyRecentDocs();
-                  }
-                  return ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: provider.medicalDocuments.length,
-                    itemBuilder: (context, index) {
-                      final doc = provider.medicalDocuments[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: _buildRecentDocCard(context, doc),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 32),
             Text(
               'categories'.tr().toUpperCase(),
               style: const TextStyle(
@@ -141,30 +97,6 @@ class MedicalFolderPage extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyRecentDocs() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withAlpha(20)),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.folder_open, color: Colors.grey[300], size: 40),
-            const SizedBox(height: 8),
-            Text(
-              'no_recent_document'.tr(),
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _simulateAddDocument(BuildContext context) {
     final provider = Provider.of<GlobalDataProvider>(context, listen: false);
 
@@ -181,7 +113,9 @@ class MedicalFolderPage extends StatelessWidget {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: 'Doc #${provider.medicalDocuments.length + 1}',
       date: DateTime.now(),
-      type: provider.medicalDocuments.length % 2 == 0 ? DocumentType.pdf : DocumentType.image,
+      type: provider.medicalDocuments.length % 2 == 0
+          ? DocumentType.pdf
+          : DocumentType.image,
       category: randomCategory,
       fileUrl: '',
     );
@@ -193,120 +127,6 @@ class MedicalFolderPage extends StatelessWidget {
         content: Text('${"new_document_added".tr()} ${randomCategory.tr()}'),
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.blue,
-      ),
-    );
-  }
-
-  Widget _buildRecentDocCard(BuildContext context, MedicalDocument doc) {
-    return Container(
-      width: 150,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: Container(
-                  height: 90,
-                  width: double.infinity,
-                  color: Colors.grey[50],
-                  child: Center(
-                    child: Icon(
-                      doc.type == DocumentType.pdf
-                          ? Icons.picture_as_pdf_outlined
-                          : Icons.image_outlined,
-                      color: Colors.grey[300],
-                      size: 32,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(120),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '.${doc.type}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  doc.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  DateFormat(
-                    'dd MMM yyyy',
-                    context.locale.languageCode,
-                  ).format(doc.date),
-                  style: const TextStyle(fontSize: 8, color: Colors.grey),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  height: 24,
-                  child: TextButton(
-                    onPressed: () {
-                      Provider.of<GlobalDataProvider>(
-                        context,
-                        listen: false,
-                      ).markDocumentAsViewed(doc.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('open_document'.tr())),
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      backgroundColor: Colors.blue.withAlpha(15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    child: Text(
-                      'consult'.tr(),
-                      style: const TextStyle(fontSize: 9),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

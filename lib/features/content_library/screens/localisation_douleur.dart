@@ -61,10 +61,13 @@ class _LocalisationDouleurPageState extends State<LocalisationDouleurPage> {
     final double ty = local.dy - r.oy;
     if (tx < 0 || tx > r.rw || ty < 0 || ty > r.rh) return;
 
+    // Calculer les coordonnées en pourcentage (0.0 à 1.0) pour être indépendant de la résolution d'écran
     final double px = tx / r.rw;
     final double py = ty / r.rh;
 
-    // Trouver le point le plus proche sans restriction de côté
+    // ÉTAPE 1 : Logique d'Intelligence et d'Interaction
+    // Trouver le point d'intérêt prédéfini le plus proche du tap de l'utilisateur
+    // Utilisation du calcul de distance euclidienne (x2 - x1)^2 + (y2 - y1)^2
     String best = current;
     double minDist = double.infinity;
 

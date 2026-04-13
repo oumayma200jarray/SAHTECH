@@ -13,6 +13,11 @@ class IATrackingData {
   final double? painLevel; // Niveau de douleur final (0-10)
   final DateTime date;
   final List<String> sessionFrames; // Pour le Time-Lapse
+  
+  // Métriques de qualité du mouvement (pour éviter que l'IA ne valide des mouvements "tricheurs")
+  double trunkLeanAngle; // Angle d'inclinaison du corps (le patient se penche pour tricher)
+  double elbowFlexion; // Angle du coude (le bras doit rester tendu pour certains exercices)
+  bool isPostureCorrect; // Flag global indiquant si le mouvement respecte la biomécanique
 
   IATrackingData({
     required this.title,
@@ -26,6 +31,9 @@ class IATrackingData {
     this.painLevel,
     required this.date,
     this.sessionFrames = const [],
+    this.trunkLeanAngle = 0.0,
+    this.elbowFlexion = 180.0,
+    this.isPostureCorrect = true,
   });
 
   /// Crée un objet de tracking à partir d'un exercice (ContentModel)
@@ -52,6 +60,9 @@ class IATrackingData {
         'painLevel': painLevel,
         'date': date.toIso8601String(),
         'sessionFrames': sessionFrames,
+        'trunkLeanAngle': trunkLeanAngle,
+        'elbowFlexion': elbowFlexion,
+        'isPostureCorrect': isPostureCorrect,
       };
 
   factory IATrackingData.fromJson(Map<String, dynamic> json) => IATrackingData(
@@ -66,5 +77,8 @@ class IATrackingData {
         painLevel: json['painLevel'] != null ? (json['painLevel'] as num).toDouble() : null,
         date: DateTime.parse(json['date']),
         sessionFrames: (json['sessionFrames'] as List?)?.map((e) => e as String).toList() ?? [],
+        trunkLeanAngle: (json['trunkLeanAngle'] ?? 0.0).toDouble(),
+        elbowFlexion: (json['elbowFlexion'] ?? 180.0).toDouble(),
+        isPostureCorrect: json['isPostureCorrect'] ?? true,
       );
 }

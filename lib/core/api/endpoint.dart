@@ -33,4 +33,21 @@ class EndPoint {
   // ─── OTP ─────────────────────────────────────────────────────────────────
   static const String otpSend = 'otp/send';
   static const String otpVerify = 'otp/verify';
+
+  // ─── Specialists ────────────────────────────────────────────────────────
+  static const String allSpecialists = 'users/specialists';
+  static const String myPatients = 'specialist/patients';
+
+  // ─── Exercises ──────────────────────────────────────────────────────────
+  static const String publishExercise = 'specialist/exercises';
+  static const String uploadExerciseVideo = 'specialist/exercises/upload-video';
+  static String patientExercises(String patientId) =>
+      'specialist/exercises/$patientId';
+  static const String myExercises = 'patient/exercises';
+
+  // ─── Medical Records ────────────────────────────────────────────────────
+  static String medicalRecords(String patientId) =>
+      'specialist/medical-records/$patientId';
+  static String uploadMedicalRecord(String patientId) =>
+      'specialist/medical-records/$patientId/upload';
 }
