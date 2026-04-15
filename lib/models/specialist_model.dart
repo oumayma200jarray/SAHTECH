@@ -36,43 +36,68 @@ class SpecialistModel {
     required this.latitude,
     required this.longitude,
   });
-  factory SpecialistModel.fromJson(Map<String, dynamic> json) {
-  return SpecialistModel(
-    userId: json['userId'] ?? '',
-    fullName: json['fullName'] ?? '',
-    gender: json['gender'] ?? '',
-    email: json['email'] ?? '',
-    phone: json['phone'] ?? '',
-    specialty: json['specialist']?['speciality'] ?? '',
-    licenseNumber: json['specialist']?['licenseNumber'] ?? '',
-    bio: json['specialist']?['bio'] ?? '',
-    clinic: json['specialist']?['clinic'] ?? '',
-    location: json['specialist']?['location'] ?? '',
-    rating: (json['specialist']?['rating'] ?? 0.0).toDouble(),
-    reviewsCount: json['specialist']?['reviewsCount'] ?? 0,
-    imageUrl: json['imageUrl'] ?? '',
-    latitude: (json['specialist']?['latitude'] ?? 0.0).toDouble(),
-    longitude: (json['specialist']?['longitude'] ?? 0.0).toDouble(),
-    distance: 0.0, // calculated on frontend using device location
-    availability: json['specialist']?['availability'] ?? '',
-  );
-}
 
-Map<String, dynamic> toJson() {
-  return {
-    'fullName': fullName,
-    'email': email,
-    'phone': phone,
-    'address': location,
-    'imageUrl': imageUrl,
-    'specialist': {
-      'speciality': specialty,
-      'clinic': clinic,
-      'bio':bio,
-      'location': location,
-      'latitude': latitude,
-      'longitude': longitude,
-    },
-  };
-}
+  static double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  factory SpecialistModel.fromJson(Map<String, dynamic> json) {
+    final specialist = json['specialist'] as Map<String, dynamic>?;
+    final user = json['user'] as Map<String, dynamic>?;
+
+    return SpecialistModel(
+      userId: (json['userId'] ?? json['id'] ?? '').toString(),
+      fullName: (json['fullName'] ?? user?['fullName'] ?? json['name'] ?? '')
+          .toString(),
+      gender: (json['gender'] ?? user?['gender'] ?? '').toString(),
+      email: (json['email'] ?? user?['email'] ?? '').toString(),
+      phone: (json['phone'] ?? user?['phone'] ?? '').toString(),
+      specialty:
+          (specialist?['speciality'] ??
+                  specialist?['specialty'] ??
+                  json['speciality'] ??
+                  json['specialty'] ??
+                  '')
+              .toString(),
+      licenseNumber: (specialist?['licenseNumber'] ?? '').toString(),
+      bio: (specialist?['bio'] ?? '').toString(),
+      clinic: (specialist?['clinic'] ?? json['clinic'] ?? '').toString(),
+      location: (specialist?['location'] ?? json['location'] ?? '').toString(),
+      rating: _toDouble(specialist?['rating'] ?? json['rating']),
+      reviewsCount: _toInt(specialist?['reviewsCount'] ?? json['reviewsCount']),
+      imageUrl: (json['imageUrl'] ?? user?['imageUrl'] ?? '').toString(),
+      latitude: _toDouble(specialist?['latitude'] ?? json['latitude']),
+      longitude: _toDouble(specialist?['longitude'] ?? json['longitude']),
+      distance: _toDouble(json['distance']),
+      availability: (specialist?['availability'] ?? json['availability'] ?? '')
+          .toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'fullName': fullName,
+      'email': email,
+      'phone': phone,
+      'address': location,
+      'imageUrl': imageUrl,
+      'specialist': {
+        'speciality': specialty,
+        'clinic': clinic,
+        'bio': bio,
+        'location': location,
+        'latitude': latitude,
+        'longitude': longitude,
+      },
+    };
+  }
 }

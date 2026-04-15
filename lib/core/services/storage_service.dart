@@ -6,6 +6,7 @@ class StorageService {
   static const _userId = 'userId';
   static const _role = 'role';
   static const _imageUrl = 'imageUrl';
+  static const _needsProfileCompletion = 'needsProfileCompletion';
 
   static Future<void> saveSession({
     required String accessToken,
@@ -50,5 +51,15 @@ class StorageService {
   static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+  }
+
+  static Future<void> setNeedsProfileCompletion(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_needsProfileCompletion, value);
+  }
+
+  static Future<bool> getNeedsProfileCompletion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_needsProfileCompletion) ?? false;
   }
 }

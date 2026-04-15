@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:provider/provider.dart';
-import 'package:sahtek/core/utils/navigation_utils.dart';
-import 'package:sahtek/features/profile/controller/profile_controller.dart';
+import 'package:sahtek/core/widgets/custom_bottom_nav_bar.dart';
 import '../models/conversation_model.dart';
 import 'messagerie_details_page.dart';
 
@@ -34,13 +32,7 @@ class _MessageriePageState extends State<MessageriePage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E293B)),
-          onPressed: () {
-            final role = context.read<ProfileController>().role;
-            NavigationUtils.navigateToDashboard(context, role);
-          },
-        ),
+        automaticallyImplyLeading: false,
         title: Text(
           'messages_title'.tr(),
           style: const TextStyle(
@@ -77,6 +69,7 @@ class _MessageriePageState extends State<MessageriePage> {
           ),
         ],
       ),
+      bottomNavigationBar: const CustomBottomNavBar(currentIndex: 3),
     );
   }
 

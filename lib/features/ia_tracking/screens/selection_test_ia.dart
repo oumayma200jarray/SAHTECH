@@ -97,24 +97,7 @@ class _SelectionTestIAPageState extends State<SelectionTestIAPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: Center(
-            child: CircleAvatar(
-              backgroundColor: const Color(0xFFF0F5FF),
-              radius: 20,
-              child: IconButton(
-                icon: const Icon(
-                  Icons.arrow_back,
-                  color: Color(0xFF0D54F2),
-                  size: 18,
-                ),
-                onPressed: () =>
-                    Navigator.pushNamed(context, 'acceuil_patient'),
-              ),
-            ),
-          ),
-        ),
+        automaticallyImplyLeading: false,
         title: Text(
           'choice_movement'.tr(),
           style: TextStyle(

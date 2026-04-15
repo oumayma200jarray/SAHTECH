@@ -37,16 +37,20 @@ class GoogleAuthController extends ChangeNotifier {
 
       // new Google user → complete profile
       if (response['isNew'] == true) {
+        await StorageService.setNeedsProfileCompletion(true);
         Navigator.pushNamedAndRemoveUntil(
           context,
-          '/complete-profile',
+          '/accueil',
           (route) => false,
         );
       } else {
+        await StorageService.setNeedsProfileCompletion(false);
         // existing user → go to home or dashboard based on role
-        final savedRole = response['role']?.toString().toUpperCase() ?? 'PATIENT';
-        final targetRoute = (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE') 
-            ? '/dashboard_specialiste' 
+        final savedRole =
+            response['role']?.toString().toUpperCase() ?? 'PATIENT';
+        final targetRoute =
+            (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE')
+            ? '/dashboard_specialiste'
             : '/accueil';
 
         Navigator.pushNamedAndRemoveUntil(

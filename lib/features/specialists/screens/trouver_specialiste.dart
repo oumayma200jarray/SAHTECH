@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sahtek/core/utils/url_helper.dart';
@@ -24,22 +25,15 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
 
   bool _isMapFull = false;
 
-  List<SpecialistModel> _allSpecialists = [];
   List<SpecialistModel> _filteredSpecialists = [];
   LatLng? _userLocation;
   final MapController _mapController = MapController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
-    SpecialistService.fetchSpecialists().then((list) {
-      if (mounted) {
-        setState(() {
-          _allSpecialists = list;
-          _filteredSpecialists = list;
-        });
-      }
-    });
+    _fetchSpecialists();
 
     _searchController.addListener(_onSearchChanged);
     _determinePosition();
@@ -76,30 +70,34 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredSpecialists = _allSpecialists.where((spec) {
-        final nameMatches = spec.fullName.toLowerCase().contains(query);
-        final specialtyMatches = spec.specialty.toLowerCase().contains(query);
-        final clinicMatches = spec.clinic.toLowerCase().contains(query);
-        return nameMatches || specialtyMatches || clinicMatches;
-      }).toList();
+  Future<void> _fetchSpecialists({String query = ''}) async {
+    final list = await SpecialistService.fetchSpecialists(query: query);
+    if (!mounted) return;
 
-      // Si un seul résultat est trouvé ou si la liste change, on peut centrer la carte sur le premier résultat
-      if (_filteredSpecialists.isNotEmpty && query.isNotEmpty) {
-        _mapController.move(
-          LatLng(
-            _filteredSpecialists.first.latitude,
-            _filteredSpecialists.first.longitude,
-          ),
-          13.0,
-        );
-      }
+    setState(() {
+      _filteredSpecialists = list;
+    });
+
+    if (_filteredSpecialists.isNotEmpty) {
+      _mapController.move(
+        LatLng(
+          _filteredSpecialists.first.latitude,
+          _filteredSpecialists.first.longitude,
+        ),
+        13.0,
+      );
+    }
+  }
+
+  void _onSearchChanged() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      _fetchSpecialists(query: _searchController.text);
     });
   }
 
@@ -110,21 +108,7 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: CircleAvatar(
-            backgroundColor: Colors.blue.withOpacity(0.08),
-            radius: 20,
-            child: IconButton(
-              icon: const Icon(
-                Icons.arrow_back,
-                color: Color.fromARGB(255, 13, 84, 242),
-                size: 20,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ),
+        automaticallyImplyLeading: false,
         title: Text(
           'find_specialist_title'.tr(),
           style: const TextStyle(
@@ -539,7 +523,7 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
               Navigator.pushNamed(
                 context,
                 '/specialiste_details',
-                arguments: spec,
+                arguments: spec.userId,
               );
             }),
           ),

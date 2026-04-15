@@ -7,10 +7,13 @@ import 'package:sahtek/core/api/endpoint.dart';
 import 'dart:io';
 
 class SpecialistService {
-  static Future<List<SpecialistModel>> fetchSpecialists() async {
+  static Future<List<SpecialistModel>> fetchSpecialists({
+    String query = '',
+  }) async {
     try {
+      final normalizedQuery = query.trim().isEmpty ? ' ' : query.trim();
       final List<dynamic> data = await EndPoint.client.get(
-        EndPoint.allSpecialists,
+        EndPoint.specialists(normalizedQuery),
       );
       return data.map((json) => SpecialistModel.fromJson(json)).toList();
     } catch (e) {
@@ -19,12 +22,27 @@ class SpecialistService {
     }
   }
 
+  static Future<SpecialistModel?> fetchSpecialistById(String userId) async {
+    try {
+      final dynamic data = await EndPoint.client.get(
+        EndPoint.specialistById(userId),
+      );
+
+      if (data is Map<String, dynamic>) {
+        return SpecialistModel.fromJson(data);
+      }
+
+      return null;
+    } catch (e) {
+      print('⚠️ fetchSpecialistById error: $e');
+      return null;
+    }
+  }
+
   /// Récupère la liste des patients assignés au spécialiste connecté
   static Future<List<PatientModel>> fetchMyPatients() async {
     try {
-      final List<dynamic> data = await EndPoint.client.get(
-        EndPoint.myPatients,
-      );
+      final List<dynamic> data = await EndPoint.client.get(EndPoint.myPatients);
       return data.map((json) => PatientModel.fromJson(json)).toList();
     } catch (e) {
       print('⚠️ fetchMyPatients error: $e');
@@ -94,7 +112,6 @@ class SpecialistService {
   /// Publie un exercice assigné à un patient
   /// Envoie les données + vidéo au backend
   static Future<bool> publishExercise(ExerciseAssignment assignment) async {
-
     try {
       // Étape 1 : Envoyer les métadonnées de l'exercice
       final response = await EndPoint.client.post(
@@ -159,4 +176,3 @@ class SpecialistService {
     }).toList();
   }
 }
-

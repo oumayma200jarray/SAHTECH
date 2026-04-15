@@ -19,6 +19,8 @@ class EndPoint {
   static const String deleteAccount = 'users/delete-account';
   static const String profile = 'users/profile';
   static const String whoami = 'users/whoami';
+  static const String posts = 'users/posts';
+  static const String publicExercises = 'users/public-exercises';
   static const String updateUser = 'users/update-user';
   static const String uploadImage = 'users/upload-image';
   static const String googleMobileCallback = 'users/auth/google/mobile';
@@ -35,7 +37,10 @@ class EndPoint {
   static const String otpVerify = 'otp/verify';
 
   // ─── Specialists ────────────────────────────────────────────────────────
-  static const String allSpecialists = 'users/specialists';
+  static String specialists(String query) =>
+      'users/specialists/${Uri.encodeComponent(query)}';
+  static String specialistById(String id) =>
+      'users/specialist/${Uri.encodeComponent(id)}';
   static const String myPatients = 'specialist/patients';
 
   // ─── Exercises ──────────────────────────────────────────────────────────
