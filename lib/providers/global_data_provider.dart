@@ -26,7 +26,6 @@ class GlobalDataProvider extends ChangeNotifier {
   // Membre sélectionné pour les exercices
   String membreSelectionne = ''; // Valeur par défaut
 
-
   // Contenu vu (Vidéos, Articles) - Pour les favoris dynamiques
   final List<ContentModel> _viewedContent = [];
   List<ContentModel> get viewedVideos =>
@@ -57,14 +56,13 @@ class GlobalDataProvider extends ChangeNotifier {
   bool _isAppointmentsInitialized = false;
 
   // Initialiser les rendez-vous si nécessaire
-  Future<void> initializeAppointments() async {
-    if (!_isAppointmentsInitialized) {
-      final initialApps = await AppointmentService.fetchAppointments();
-      // Fusionner avec les rendez-vous ajoutés dynamiquement pendant l'initialisation
-      _appointments = [..._appointments, ...initialApps];
-      _isAppointmentsInitialized = true;
-      notifyListeners();
-    }
+  Future<void> initializeAppointments({bool forceRefresh = false}) async {
+    if (_isAppointmentsInitialized && !forceRefresh) return;
+
+    final initialApps = await AppointmentService.fetchAppointments();
+    _appointments = initialApps;
+    _isAppointmentsInitialized = true;
+    notifyListeners();
   }
 
   // Ajouter un rendez-vous
@@ -164,7 +162,6 @@ class GlobalDataProvider extends ChangeNotifier {
 
   // Mettre à jour le membre sélectionné
   void setMembre(String membre) {
-
     membreSelectionne = membre;
     notifyListeners();
   }
@@ -271,7 +268,7 @@ class GlobalDataProvider extends ChangeNotifier {
           painHistory: [5, 4, 3, 3.5],
           painLevel: 3.5,
           date: DateTime.now().subtract(const Duration(days: 7)),
-          sessionFrames: [], 
+          sessionFrames: [],
         ),
       ]);
       _saveTrackingHistory(); // Sauvegarder les mock pour la première fois
@@ -282,13 +279,19 @@ class GlobalDataProvider extends ChangeNotifier {
   // Permet d'enregistrer le résultat final de la séance IA
   void saveIATrackingResult(IATrackingData result) {
     // Récupérer les 4 dernières valeurs d'angles et de douleur pour le graphique
-    final List<double> historicalAngles = _trackingHistory.length >= 4 
-      ? _trackingHistory.sublist(_trackingHistory.length - 4).map((e) => e.currentValue).toList()
-      : _trackingHistory.map((e) => e.currentValue).toList();
-    
-    final List<double> historicalPain = _trackingHistory.length >= 4 
-      ? _trackingHistory.sublist(_trackingHistory.length - 4).map((e) => e.painLevel ?? 0.0).toList()
-      : _trackingHistory.map((e) => e.painLevel ?? 0.0).toList();
+    final List<double> historicalAngles = _trackingHistory.length >= 4
+        ? _trackingHistory
+              .sublist(_trackingHistory.length - 4)
+              .map((e) => e.currentValue)
+              .toList()
+        : _trackingHistory.map((e) => e.currentValue).toList();
+
+    final List<double> historicalPain = _trackingHistory.length >= 4
+        ? _trackingHistory
+              .sublist(_trackingHistory.length - 4)
+              .map((e) => e.painLevel ?? 0.0)
+              .toList()
+        : _trackingHistory.map((e) => e.painLevel ?? 0.0).toList();
 
     // Ajouter la valeur actuelle à la fin
     historicalAngles.add(result.currentValue);
@@ -329,7 +332,7 @@ class GlobalDataProvider extends ChangeNotifier {
         painHistory: lastTrackingResult!.painHistory,
         painLevel: painLevel,
         date: lastTrackingResult!.date,
-        sessionFrames: lastTrackingResult!.sessionFrames, 
+        sessionFrames: lastTrackingResult!.sessionFrames,
       );
 
       // Mettre à jour aussi dans l'historique (le dernier élément)

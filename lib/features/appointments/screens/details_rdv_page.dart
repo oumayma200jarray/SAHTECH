@@ -85,7 +85,9 @@ class DetailsRdvPage extends StatelessWidget {
             radius: 50,
             backgroundColor: const Color(0xFFE3EAFF),
             child: Text(
-              app.specialistName.isNotEmpty ? app.specialistName[0].toUpperCase() : 'S',
+              app.specialistName.isNotEmpty
+                  ? app.specialistName[0].toUpperCase()
+                  : 'S',
               style: const TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.bold,
@@ -141,7 +143,8 @@ class DetailsRdvPage extends StatelessWidget {
         _buildInfoItem(
           Icons.check_circle_outline,
           'status'.tr(),
-          app.status,
+          _statusLabel(app.status),
+          statusColor: _statusColor(app.status),
           isStatus: true,
         ),
       ],
@@ -153,6 +156,7 @@ class DetailsRdvPage extends StatelessWidget {
     String label,
     String value, {
     bool isStatus = false,
+    Color statusColor = Colors.green,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
@@ -180,10 +184,10 @@ class DetailsRdvPage extends StatelessWidget {
                       children: [
                         Text(
                           value,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: Colors.green,
+                            color: statusColor,
                           ),
                         ),
                       ],
@@ -206,18 +210,57 @@ class DetailsRdvPage extends StatelessWidget {
     return Column(
       children: [
         if (app.type == 'Téléconsultation')
-          buttonC(
-            'join_call'.tr(),
-            () {},
-            icon: Icons.videocam,
-          ),
+          buttonC('join_call'.tr(), () {}, icon: Icons.videocam),
         const SizedBox(height: 16),
-        if (app.status != 'Annulé' && app.status != 'status_cancelled'.tr())
-          buttonIn(
-            'modify_cancel_appointment'.tr(),
-            () {},
-          ),
+        if (!_isFinalStatus(app.status))
+          buttonIn('modify_cancel_appointment'.tr(), () {}),
       ],
     );
+  }
+
+  bool _isFinalStatus(String status) {
+    final normalized = status.trim().toUpperCase();
+    return normalized == 'CANCELLED' ||
+        normalized == 'REJECTED' ||
+        normalized == 'COMPLETED' ||
+        status == 'Annulé' ||
+        status == 'status_cancelled'.tr();
+  }
+
+  Color _statusColor(String status) {
+    final normalized = status.trim().toUpperCase();
+    switch (normalized) {
+      case 'ACEPTED':
+      case 'ACCEPTED':
+        return Colors.blue;
+      case 'SCHEDULED':
+        return Colors.orange;
+      case 'COMPLETED':
+        return Colors.green;
+      case 'REJECTED':
+      case 'CANCELLED':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _statusLabel(String status) {
+    final normalized = status.trim().toUpperCase();
+    switch (normalized) {
+      case 'SCHEDULED':
+        return 'En attente';
+      case 'ACEPTED':
+      case 'ACCEPTED':
+        return 'Confirmé';
+      case 'REJECTED':
+        return 'Refusé';
+      case 'COMPLETED':
+        return 'Terminé';
+      case 'CANCELLED':
+        return 'Annulé';
+      default:
+        return status;
+    }
   }
 }
