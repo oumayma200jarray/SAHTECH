@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/models/dashboard_models.dart';
-import 'package:sahtek/features/dashboard/services/dashboard_services.dart';
+import 'package:sahtek/services/chat_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class MessagerieDetailsPage extends StatefulWidget {
-  const MessagerieDetailsPage({Key? key}) : super(key: key);
+  final String conversationId;
+  final String doctorName;
+
+  const MessagerieDetailsPage({
+    Key? key,
+    required this.conversationId,
+    required this.doctorName,
+  }) : super(key: key);
 
   @override
   State<MessagerieDetailsPage> createState() => _MessagerieDetailsPageState();
@@ -13,136 +21,286 @@ class MessagerieDetailsPage extends StatefulWidget {
 
 class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
   final TextEditingController _messageController = TextEditingController();
-  late Future<ChatConversation> _conversationFuture;
+  final ChatServiceSocket _chatSocket = ChatServiceSocket();
+  final List<ChatMessage> _messages = [];
+  bool _isLoading = true;
+  bool _isSending = false;
+  bool _isSocketReady = false;
+
+  StreamSubscription<SocketMessageEvent>? _newMessageSub;
+  StreamSubscription<SocketMessagesReadEvent>? _messagesReadSub;
+  StreamSubscription<Map<String, dynamic>>? _notificationSub;
+  StreamSubscription<Map<String, dynamic>>? _conversationUpdatedSub;
+  StreamSubscription<dynamic>? _errorSub;
+  bool _isSyncingFromEvent = false;
 
   @override
   void initState() {
     super.initState();
-    _conversationFuture = ChatService.getConversation();
+    _loadMessages();
+    _initializeRealtime();
   }
 
-  void _refreshMessages() {
+  Future<void> _loadMessages({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    final fetched = await ChatRestService.getMessages(widget.conversationId);
+    if (!mounted) return;
+
     setState(() {
-      _conversationFuture = ChatService.getConversation();
+      _messages
+        ..clear()
+        ..addAll(fetched);
+      _isLoading = false;
     });
+  }
+
+  Future<void> _initializeRealtime() async {
+    try {
+      await _chatSocket.initialize();
+
+      _newMessageSub = _chatSocket.newMessageStream.listen((event) {
+        if (!mounted) return;
+
+        // Some backends may omit conversationId in new_message payload.
+        if (event.conversationId.isNotEmpty &&
+            event.conversationId != widget.conversationId) {
+          return;
+        }
+
+        if (event.conversationId.isEmpty) {
+          _syncMessagesFromEvent();
+          return;
+        }
+
+        final exists = _messages.any((m) => m.id == event.message.id);
+        if (exists) return;
+
+        setState(() {
+          _messages.add(event.message);
+        });
+      });
+
+      _notificationSub = _chatSocket.notificationStream.listen((payload) {
+        if (!mounted) return;
+        final conversationId = payload['conversationId']?.toString() ?? '';
+        if (conversationId == widget.conversationId) {
+          _syncMessagesFromEvent();
+        }
+      });
+
+      _conversationUpdatedSub = _chatSocket.conversationUpdatedStream.listen((
+        payload,
+      ) {
+        if (!mounted) return;
+        final conversationId = payload['conversationId']?.toString() ?? '';
+        if (conversationId == widget.conversationId) {
+          _syncMessagesFromEvent();
+        }
+      });
+
+      _messagesReadSub = _chatSocket.messagesReadStream.listen((event) {
+        // Ready for UI read-receipt badges if needed.
+      });
+
+      _errorSub = _chatSocket.errorStream.listen((error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Chat error: $error')));
+      });
+
+      await _chatSocket.joinConversation(widget.conversationId);
+      await _chatSocket.markAsRead(widget.conversationId);
+
+      if (mounted) {
+        setState(() {
+          _isSocketReady = true;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Realtime unavailable, using REST only: $e')),
+      );
+    }
+  }
+
+  Future<void> _syncMessagesFromEvent() async {
+    if (_isSyncingFromEvent) return;
+    _isSyncingFromEvent = true;
+    try {
+      await _loadMessages(silent: true);
+    } finally {
+      _isSyncingFromEvent = false;
+    }
+  }
+
+  void _showNotification(Map<String, dynamic> notification) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${notification['senderName']}: ${notification['preview']}',
+        ),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0D54F2),
+      ),
+    );
+  }
+
+  Future<void> _sendMessage() async {
+    final message = _messageController.text.trim();
+    if (message.isEmpty || _isSending) return;
+
+    setState(() {
+      _isSending = true;
+    });
+
+    _messageController.clear();
+
+    if (_isSocketReady) {
+      try {
+        await _chatSocket.sendMessage(widget.conversationId, message);
+      } catch (_) {
+        final sent = await ChatRestService.sendMessage(
+          conversationId: widget.conversationId,
+          content: message,
+        );
+        if (sent != null) {
+          await _loadMessages(silent: true);
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('failed_to_send_message'.tr())),
+          );
+        }
+      }
+    } else {
+      final sent = await ChatRestService.sendMessage(
+        conversationId: widget.conversationId,
+        content: message,
+      );
+      if (sent != null) {
+        await _loadMessages(silent: true);
+      } else if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('failed_to_send_message'.tr())));
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isSending = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Récupération du nom passé en argument (si présent)
-    final String? argName =
-        ModalRoute.of(context)?.settings.arguments as String?;
-    final String initialName = argName ?? 'doctor_placeholder'.tr();
-
-    return FutureBuilder<ChatConversation>(
-      future: _conversationFuture,
-      initialData: ChatConversation.placeholder(initialName),
-      builder: (context, snapshot) {
-        final conversation =
-            snapshot.data ?? ChatConversation.placeholder(initialName);
-        final messages = conversation.messages;
-
-        return Scaffold(
-          backgroundColor: const Color(0xFFF8F9FA),
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 1,
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_ios,
-                color: Colors.blue,
-                size: 18,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.blue, size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: const Color(0xFFE3EAFF),
+              child: Text(
+                widget.doctorName.isNotEmpty
+                    ? widget.doctorName[0].toUpperCase()
+                    : 'M',
+                style: const TextStyle(
+                  color: Color(0xFF0D54F2),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
-              onPressed: () => Navigator.pop(context),
             ),
-            title: Row(
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: const Color(0xFFE3EAFF),
-                  child: Text(
-                    conversation.doctorName.isNotEmpty
-                        ? conversation.doctorName[0].toUpperCase()
-                        : 'M',
-                    style: const TextStyle(
-                      color: Color(0xFF0D54F2),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                Text(
+                  widget.doctorName,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      conversation.doctorName,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (conversation.specialty.isNotEmpty)
-                      Text(
-                        conversation.specialty.toUpperCase(),
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                  ],
+                Text(
+                  _isSocketReady ? 'Realtime connected' : 'REST fallback',
+                  style: TextStyle(
+                    color: _isSocketReady ? Colors.green : Colors.grey[600],
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.videocam_outlined, color: Colors.blue),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.info_outline, color: Colors.blue),
-                onPressed: () {},
-              ),
-            ],
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.videocam_outlined, color: Colors.blue),
+            onPressed: () {},
           ),
-          body: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Text(
-                  'end_to_end_encryption'.tr(),
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+          IconButton(
+            icon: const Icon(Icons.info_outline, color: Colors.blue),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Text(
+              'end_to_end_encryption'.tr(),
+              style: const TextStyle(
+                color: Colors.blue,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
+                ? Center(
+                    child: Text(
+                      'no_messages_yet'.tr(),
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    reverse: true,
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[_messages.length - 1 - index];
+                      return _buildMessageBubble(message);
+                    },
                   ),
-                ),
-              ),
-              Expanded(
-                child: snapshot.connectionState == ConnectionState.waiting
-                    ? const Center(child: CircularProgressIndicator())
-                    : messages.isEmpty
-                    ? Center(
-                        child: Text(
-                          "no_messages_yet".tr(),
-                          style: const TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: messages.length,
-                        itemBuilder: (context, index) =>
-                            _buildMessageBubble(messages[index]),
-                      ),
-              ),
-              _buildInputArea(),
-            ],
           ),
-        );
-      },
+          _buildInputArea(),
+        ],
+      ),
     );
   }
 
@@ -250,6 +408,7 @@ class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
               ),
               child: TextField(
                 controller: _messageController,
+                onSubmitted: (_) async => _sendMessage(),
                 decoration: InputDecoration(
                   hintText: 'write_message_hint'.tr(),
                   hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
@@ -262,14 +421,7 @@ class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
           _buildCircleButton(
             Icons.send,
             Colors.blue,
-            onPressed: () {
-              if (_messageController.text.isNotEmpty) {
-                // Simulation d'envoi
-                print("Message envoyé: ${_messageController.text}");
-                _messageController.clear();
-                _refreshMessages();
-              }
-            },
+            onPressed: _isSending ? () {} : () => _sendMessage(),
           ),
         ],
       ),
@@ -289,5 +441,16 @@ class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
         child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _newMessageSub?.cancel();
+    _messagesReadSub?.cancel();
+    _notificationSub?.cancel();
+    _conversationUpdatedSub?.cancel();
+    _errorSub?.cancel();
+    _messageController.dispose();
+    super.dispose();
   }
 }

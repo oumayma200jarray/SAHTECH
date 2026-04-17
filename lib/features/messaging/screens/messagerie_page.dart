@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/core/widgets/custom_bottom_nav_bar.dart';
-import '../models/conversation_model.dart';
+import 'package:sahtek/services/chat_service.dart';
 import 'messagerie_details_page.dart';
 
 class MessageriePage extends StatefulWidget {
@@ -13,16 +14,67 @@ class MessageriePage extends StatefulWidget {
 
 class _MessageriePageState extends State<MessageriePage> {
   final TextEditingController _searchController = TextEditingController();
-  List<Conversation> _filteredConversations = Conversation.mockConversations;
+  final ChatServiceSocket _chatSocket = ChatServiceSocket();
+  late Future<List<ConversationPreview>> _conversationsFuture;
+  List<ConversationPreview> _allConversations = [];
+  StreamSubscription<Map<String, dynamic>>? _conversationUpdatedSub;
+  StreamSubscription<int>? _unreadUpdatedSub;
+  StreamSubscription<SocketMessageEvent>? _newMessageSub;
+  StreamSubscription<dynamic>? _errorSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _conversationsFuture = ChatRestService.getConversations();
+    _initRealtime();
+  }
+
+  Future<void> _initRealtime() async {
+    try {
+      await _chatSocket.initialize();
+
+      _conversationUpdatedSub = _chatSocket.conversationUpdatedStream.listen((
+        _,
+      ) {
+        if (!mounted) return;
+        setState(() {
+          _conversationsFuture = ChatRestService.getConversations();
+        });
+      });
+
+      _unreadUpdatedSub = _chatSocket.unreadCountUpdatedStream.listen((_) {
+        if (!mounted) return;
+        setState(() {
+          _conversationsFuture = ChatRestService.getConversations();
+        });
+      });
+
+      _newMessageSub = _chatSocket.newMessageStream.listen((_) {
+        if (!mounted) return;
+        setState(() {
+          _conversationsFuture = ChatRestService.getConversations();
+        });
+      });
+
+      _errorSub = _chatSocket.errorStream.listen((error) {
+        debugPrint('Chat socket error in conversations page: $error');
+      });
+    } catch (e) {
+      debugPrint('Realtime initialization failed on conversations page: $e');
+    }
+  }
+
+  Future<void> _refreshConversations() async {
+    final future = ChatRestService.getConversations();
+    if (!mounted) return;
+    setState(() {
+      _conversationsFuture = future;
+    });
+    await future;
+  }
 
   void _filterConversations(String query) {
-    setState(() {
-      _filteredConversations = Conversation.mockConversations
-          .where(
-            (conv) => conv.name.toLowerCase().contains(query.toLowerCase()),
-          )
-          .toList();
-    });
+    setState(() {});
   }
 
   @override
@@ -54,20 +106,58 @@ class _MessageriePageState extends State<MessageriePage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          _buildRecentHeader(),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(20),
-              itemCount: _filteredConversations.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) =>
-                  _buildConversationTile(_filteredConversations[index]),
-            ),
-          ),
-        ],
+      body: FutureBuilder<List<ConversationPreview>>(
+        future: _conversationsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('error_loading_conversations'.tr()));
+          }
+
+          _allConversations = snapshot.data ?? [];
+          final query = _searchController.text.trim().toLowerCase();
+          final visibleConversations = query.isEmpty
+              ? _allConversations
+              : _allConversations
+                    .where(
+                      (conv) => conv.doctorName.toLowerCase().contains(query),
+                    )
+                    .toList();
+
+          return Column(
+            children: [
+              _buildSearchBar(),
+              _buildRecentHeader(),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refreshConversations,
+                  child: visibleConversations.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(vertical: 120),
+                          children: [
+                            Center(child: Text('no_conversations'.tr())),
+                          ],
+                        )
+                      : ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(20),
+                          itemCount: visibleConversations.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) =>
+                              _buildConversationTile(
+                                visibleConversations[index],
+                              ),
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
       bottomNavigationBar: const CustomBottomNavBar(currentIndex: 3),
     );
@@ -125,16 +215,24 @@ class _MessageriePageState extends State<MessageriePage> {
     );
   }
 
-  Widget _buildConversationTile(Conversation conv) {
+  Widget _buildConversationTile(ConversationPreview conv) {
     return InkWell(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const MessagerieDetailsPage(),
-            settings: RouteSettings(arguments: conv.name),
+            builder: (context) => MessagerieDetailsPage(
+              conversationId: conv.conversationId,
+              doctorName: conv.doctorName,
+            ),
+            settings: RouteSettings(arguments: conv.conversationId),
           ),
-        );
+        ).then((_) {
+          // Refresh conversations when returning from details
+          setState(() {
+            _conversationsFuture = ChatRestService.getConversations();
+          });
+        });
       },
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -197,7 +295,7 @@ class _MessageriePageState extends State<MessageriePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        conv.name,
+                        conv.doctorName,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
@@ -277,5 +375,15 @@ class _MessageriePageState extends State<MessageriePage> {
       return "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
     if (diff.inDays == 1) return "hier".tr();
     return "${date.day}/${date.month}";
+  }
+
+  @override
+  void dispose() {
+    _conversationUpdatedSub?.cancel();
+    _unreadUpdatedSub?.cancel();
+    _newMessageSub?.cancel();
+    _errorSub?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 }

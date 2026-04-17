@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sahtek/core/config/app_config.dart';
 import 'package:sahtek/core/services/auth_init_service.dart';
+import 'package:sahtek/core/services/chat_realtime_service.dart';
 import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:sahtek/features/auth/controllers/auth_controller.dart';
@@ -43,7 +45,9 @@ import 'package:sahtek/features/specialists/screens/medical_category_detail_page
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.initialize();
   await EasyLocalization.ensureInitialized();
+  await ChatRealtimeService.instance.start();
 
   initializeDateFormatting('fr_FR', null).then((_) {
     runApp(

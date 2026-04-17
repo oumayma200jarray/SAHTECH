@@ -1,10 +1,16 @@
-class AppConfig {
-  // change this one value depending on where you run:
-  // '10.0.2.2'   → Android emulator
-  // 'localhost'  → web or iOS simulator
-  // '192.168.x.x' → physical Android device (your PC's local IP)
-  static const String host = '10.0.2.2'; // 👈 change this only
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-  static const String apiBaseUrl = 'http://$host:3000';
-  static const String minioBaseUrl = 'http://$host:9000';
+class AppConfig {
+  static late final String host;
+
+  static late final String apiBaseUrl;
+  static late final String minioBaseUrl;
+
+  /// Initialize AppConfig with values from .env file
+  static Future<void> initialize() async {
+    await dotenv.load();
+    host = dotenv.env['HOST'] ?? '10.0.2.2';
+    apiBaseUrl = 'http://$host:3000';
+    minioBaseUrl = 'http://$host:9000';
+  }
 }

@@ -5,7 +5,7 @@ import 'http_client.dart';
 class EndPoint {
   // ─── Base URL ───────────────────────────────────────────────────────────────
   // static const String _baseUrl = 'http://10.0.2.2:3000';
-  static const String _baseUrl = AppConfig.apiBaseUrl;
+  static final String _baseUrl = AppConfig.apiBaseUrl;
   // static const String _baseUrl = 'http://your-production-ip:3000';
 
   /// Single shared HTTP client instance for the whole app
@@ -62,4 +62,13 @@ class EndPoint {
       'specialist/medical-records/$patientId';
   static String uploadMedicalRecord(String patientId) =>
       'specialist/medical-records/$patientId/upload';
+
+  // ─── Chat / Messaging ───────────────────────────────────────────────────
+  static const String chatConversations = 'chat/conversations';
+  static String chatMessages(String conversationId) =>
+      'chat/conversations/$conversationId/messages';
+  static String chatSendMessage(String conversationId) =>
+      'chat/conversations/$conversationId/messages';
+  static const String chatUnreadCount = 'chat/unread';
+  static const String chatWebSocketNamespace = '/chat';
 }
