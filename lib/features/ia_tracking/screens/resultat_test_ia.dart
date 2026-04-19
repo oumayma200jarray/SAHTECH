@@ -53,7 +53,7 @@ class ResultatsTestIAPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   ROMAnalysisCard(
-                    title: "ROM : ÉFLEXION",
+                    title: "ROM : FLEXION",
                     subtitle: "Points de repère Google ML Kit",
                     value: "${lastResult.currentValue.toStringAsFixed(1)}°",
                     label: "ÉLÉVATION",
@@ -150,12 +150,13 @@ class ResultatsTestIAPage extends StatelessWidget {
                   const SizedBox(height: 32),
                   _buildSectionTitle(
                     Icons.auto_awesome,
-                    "4. Analyse Sémantique & Feedback (NLP)",
+                    "4. Feedback Local & Recommandations",
                   ),
                   const SizedBox(height: 20),
                   AIDiagnosticFeedback(
                     elbowFlexion: lastResult.elbowFlexion,
-                    onGeneratePDF: () => _reportService.generateAndOpenReport(lastResult),
+                    onGeneratePDF: () =>
+                        _reportService.generateAndOpenReport(lastResult),
                   ),
                   const SizedBox(height: 32),
                   _buildVideoReview(lastResult),
@@ -191,7 +192,37 @@ class ResultatsTestIAPage extends StatelessWidget {
     );
   }
 
+  double _qualityPercent(IATrackingData result) {
+    // Backward compatibility: older sessions may store precision in [0..1].
+    final raw = result.precision;
+    final normalized = raw <= 1.0 ? raw * 100.0 : raw;
+    return normalized.clamp(0.0, 100.0);
+  }
+
+  String _qualityLabel(double quality) {
+    if (quality >= 85) return 'Optimale';
+    if (quality >= 65) return 'Acceptable';
+    return 'À corriger';
+  }
+
+  double _mobilityPercent(IATrackingData result) {
+    if (result.objective <= 0) return 0.0;
+    return ((result.currentValue / result.objective) * 100.0).clamp(0.0, 100.0);
+  }
+
+  double _posturePercent(IATrackingData result) {
+    final trunkPenalty = (result.trunkLeanAngle / 30.0).clamp(0.0, 1.0);
+    final elbowPenalty = ((180.0 - result.elbowFlexion) / 60.0).clamp(0.0, 1.0);
+    final score = 100.0 - ((trunkPenalty * 40.0) + (elbowPenalty * 40.0));
+    return (result.isPostureCorrect ? score : score - 20.0).clamp(0.0, 100.0);
+  }
+
   Widget _buildGlobalSummary(IATrackingData result) {
+    final quality = _qualityPercent(result);
+    final qualityLabel = _qualityLabel(quality);
+    final mobility = _mobilityPercent(result);
+    final posture = _posturePercent(result);
+
     return Container(
       width: double.infinity,
       color: Colors.white,
@@ -241,7 +272,7 @@ class ResultatsTestIAPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "${(result.precision * 100).toStringAsFixed(1)}%",
+                        "${quality.toStringAsFixed(1)}%",
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 32,
@@ -253,25 +284,100 @@ class ResultatsTestIAPage extends StatelessWidget {
                 ),
                 Container(width: 1, height: 40, color: Colors.white24),
                 const SizedBox(width: 20),
-                const Expanded(
+                Expanded(
                   flex: 2,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Qualité Biomécanique : Optimale",
-                        style: TextStyle(
+                        "Qualité Biomécanique : $qualityLabel",
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        "Traitement IA Claude : Actif",
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                        "Moteur local Google ML Kit : Actif",
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _buildBreakdownCard(
+                  label: 'Mobilité',
+                  value: mobility,
+                  color: const Color(0xFF0D54F2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildBreakdownCard(
+                  label: 'Posture',
+                  value: posture,
+                  color: const Color(0xFF10B981),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreakdownCard({
+    required String label,
+    required double value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${value.toStringAsFixed(1)}%',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
                   ),
                 ),
               ],
@@ -329,7 +435,7 @@ class ResultatsTestIAPage extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Vidéo analysée par l\'IA • 0:12',
+                  'Vidéo analysée localement • 0:12',
                   style: TextStyle(fontSize: 12, color: Colors.grey[400]),
                 ),
               ],

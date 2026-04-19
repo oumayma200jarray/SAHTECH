@@ -108,7 +108,7 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
   void _startAnalysisTimer() {
     _analysisTimer?.cancel();
     _analysisTimer = Timer.periodic(
-      const Duration(milliseconds: 1000),
+      const Duration(milliseconds: 350),
       (_) => _captureAndAnalyze(),
     );
   }
@@ -126,7 +126,7 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
       // ÉTAPE A.2 : Encapsulation de la trame en InputImage (Format attendu par ML Kit)
       // Ceci constitue le "Dataset dynamique" envoyé au modèle
       final inputImage = InputImage.fromFilePath(image.path);
-      
+
       // ÉTAPE A.3 : Inférence du Modèle Deep Learning (Vision par Ordinateur Google ML Kit Pose Detection)
       // Le modèle analyse l'image et retourne une liste de "Poses" (contenant 33 landmarks du corps)
       final poses = await _poseDetectionService.processImage(inputImage);
@@ -257,29 +257,8 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Fond Caméra
-          Positioned.fill(
-            child: _isCameraReady && _cameraController != null
-                ? CameraPreview(_cameraController!)
-                : Container(color: Colors.black),
-          ),
-
-          // 2. Overlay Pose (Optionnel)
-          if (_isCameraReady && _poses.isNotEmpty && _cameraController != null)
-            Positioned.fill(
-              child: CustomPaint(
-                painter: PosePainter(
-                  _poses,
-                  _cameraController!.value.previewSize != null
-                      ? Size(
-                          _cameraController!.value.previewSize!.height,
-                          _cameraController!.value.previewSize!.width,
-                        )
-                      : const Size(480, 640),
-                  InputImageRotation.rotation90deg,
-                ),
-              ),
-            ),
+          // 1. Fond caméra + overlay pose dans le même repère d'aspect ratio.
+          Positioned.fill(child: _buildCameraAndOverlay()),
 
           // 3. Barre de statut supérieure
           SafeArea(
@@ -608,19 +587,75 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     );
   }
 
+  Widget _buildCameraAndOverlay() {
+    if (!_isCameraReady || _cameraController == null) {
+      return Container(color: Colors.black);
+    }
+
+    final previewSize = _cameraController!.value.previewSize;
+    final double aspectRatio = previewSize != null
+        ? (previewSize.height / previewSize.width)
+        : (1 / _cameraController!.value.aspectRatio);
+
+    return Center(
+      child: AspectRatio(
+        aspectRatio: aspectRatio,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CameraPreview(_cameraController!),
+            if (_poses.isNotEmpty)
+              CustomPaint(
+                painter: PosePainter(
+                  _poses,
+                  previewSize != null
+                      ? Size(previewSize.width, previewSize.height)
+                      : const Size(1280, 720),
+                  _mapRotation(
+                    _cameraController!.description.sensorOrientation,
+                  ),
+                  isFrontCamera: false,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputImageRotation _mapRotation(int sensorOrientation) {
+    switch (sensorOrientation) {
+      case 90:
+        return InputImageRotation.rotation90deg;
+      case 180:
+        return InputImageRotation.rotation180deg;
+      case 270:
+        return InputImageRotation.rotation270deg;
+      case 0:
+      default:
+        return InputImageRotation.rotation0deg;
+    }
+  }
+
   void _finishSession() {
     final data = _trackingController.trackingData;
     if (data != null) {
+      final List<double> trackedHistory =
+          _trackingController.sessionAngleHistory;
+      final double bestValidAngle = _trackingController.bestValidAngle;
       final finalData = IATrackingData(
         title: data.title,
-        currentValue: _sessionMaxAngle,
+        currentValue: bestValidAngle > 0 ? bestValidAngle : _sessionMaxAngle,
         unit: data.unit,
         objective: data.objective,
-        precision: data.precision,
-        guidanceText: data.guidanceText,
-        angleHistory: data.angleHistory,
+        precision: _trackingController.movementQualityScore,
+        guidanceText: _trackingController.feedbackMessage,
+        angleHistory: trackedHistory,
         date: DateTime.now(),
         sessionFrames: _sessionFrames,
+        trunkLeanAngle: data.trunkLeanAngle,
+        elbowFlexion: data.elbowFlexion,
+        isPostureCorrect: data.isPostureCorrect,
       );
 
       final provider = Provider.of<GlobalDataProvider>(context, listen: false);

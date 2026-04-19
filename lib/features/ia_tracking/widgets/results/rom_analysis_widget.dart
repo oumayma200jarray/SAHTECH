@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class ROMAnalysisCard extends StatelessWidget {
   final String title;
@@ -18,6 +20,54 @@ class ROMAnalysisCard extends StatelessWidget {
     this.imagePath,
   }) : super(key: key);
 
+  Widget _buildPreviewImage() {
+    if (imagePath == null || imagePath!.isEmpty) {
+      return const Center(
+        child: Icon(
+          Icons.accessibility_new,
+          color: Color(0xFF0D54F2),
+          size: 40,
+        ),
+      );
+    }
+
+    final String path = imagePath!;
+    final bool isNetwork =
+        path.startsWith('http://') || path.startsWith('https://');
+    final bool isFilePath =
+        path.startsWith('/') ||
+        path.contains(':/') ||
+        path.startsWith('file://');
+
+    if (isNetwork) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Icon(Icons.broken_image_outlined, color: Color(0xFF0D54F2)),
+        ),
+      );
+    }
+
+    if (isFilePath && !kIsWeb) {
+      return Image.file(
+        File(path.replaceFirst('file://', '')),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Icon(Icons.broken_image_outlined, color: Color(0xFF0D54F2)),
+        ),
+      );
+    }
+
+    return Image.asset(
+      path,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => const Center(
+        child: Icon(Icons.broken_image_outlined, color: Color(0xFF0D54F2)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -36,14 +86,41 @@ class ROMAnalysisCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
-                  Text(subtitle, style: const TextStyle(color: Color(0xFF0D54F2), fontSize: 9, fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF0D54F2),
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: const Color(0xFFF0F5FF), borderRadius: BorderRadius.circular(8)),
-                child: Text(value, style: const TextStyle(color: Color(0xFF0D54F2), fontWeight: FontWeight.bold, fontSize: 11)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F5FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    color: Color(0xFF0D54F2),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
               ),
             ],
           ),
@@ -54,14 +131,21 @@ class ROMAnalysisCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFF),
               borderRadius: BorderRadius.circular(16),
-              image: imagePath != null ? DecorationImage(image: AssetImage(imagePath!), fit: BoxFit.cover) : null,
             ),
-            child: imagePath == null ? const Center(child: Icon(Icons.accessibility_new, color: Color(0xFF0D54F2), size: 40)) : null,
+            clipBehavior: Clip.antiAlias,
+            child: _buildPreviewImage(),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF64748B),
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: ClipRRect(
@@ -69,7 +153,9 @@ class ROMAnalysisCard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: progress,
                     backgroundColor: const Color(0xFFF1F5F9),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0D54F2)),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF0D54F2),
+                    ),
                     minHeight: 6,
                   ),
                 ),
