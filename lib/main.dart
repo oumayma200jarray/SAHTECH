@@ -30,6 +30,7 @@ import 'package:sahtek/features/dashboard/screens/dashboard_specialiste.dart';
 import 'package:sahtek/features/profile/screens/profile_page.dart';
 import 'package:sahtek/features/profile/screens/personal_info_page.dart';
 import 'package:sahtek/features/profile/screens/medical_folder_page.dart';
+import 'package:sahtek/features/profile/screens/change_password_page.dart';
 import 'package:sahtek/features/content_library/screens/favorites_page.dart';
 import 'package:sahtek/features/profile/screens/security_privacy_page.dart';
 import 'package:sahtek/features/notifications/screens/notifications_page.dart';
@@ -111,6 +112,7 @@ class MyApp extends StatelessWidget {
         '/personal_info': (context) => const PersonalInfoPage(),
         '/medical_folder': (context) => const MedicalFolderPage(),
         '/favorites': (context) => const FavoritesPage(),
+        '/change-password': (context) => const ChangePasswordPage(),
         '/security_privacy': (context) => const SecurityPrivacyPage(),
         '/notifications': (context) => const NotificationsPage(),
         '/suivi_ia_direct': (context) => const SuiviIADirectPage(),

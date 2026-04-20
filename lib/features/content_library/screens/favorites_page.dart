@@ -1,123 +1,85 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:sahtek/core/api/http_client.dart';
 import 'package:sahtek/core/utils/url_helper.dart';
-import 'package:sahtek/providers/global_data_provider.dart';
+import 'package:sahtek/features/content_library/services/favorite_posts_service.dart';
 import 'package:sahtek/models/content_model.dart';
-import 'package:sahtek/models/medical_document_model.dart';
 import 'package:easy_localization/easy_localization.dart';
 
-class FavoritesPage extends StatelessWidget {
+class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
 
   @override
+  State<FavoritesPage> createState() => _FavoritesPageState();
+}
+
+class _FavoritesPageState extends State<FavoritesPage> {
+  late Future<List<ContentModel>> _favoritesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _favoritesFuture = FavoritePostsService.getFavoritePosts();
+  }
+
+  void _reloadFavorites() {
+    setState(() {
+      _favoritesFuture = FavoritePostsService.getFavoritePosts();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0.5,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios,
-              color: Colors.blue,
-              size: 20,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            'my_favorites'.tr(),
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          bottom: TabBar(
-            labelColor: Colors.blue,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Colors.blue,
-            labelStyle: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-            tabs: [
-              Tab(text: 'videos'.tr()),
-              Tab(text: 'articles'.tr()),
-              Tab(text: 'documents'.tr()),
-            ],
-          ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.blue, size: 20),
+          onPressed: () => Navigator.pop(context),
         ),
-        body: Consumer<GlobalDataProvider>(
-          builder: (context, provider, child) {
-            return TabBarView(
-              children: [
-                _buildContentList(
-                  context,
-                  provider.viewedVideos,
-                  'videos'.tr().toLowerCase(),
-                ),
-                _buildContentList(
-                  context,
-                  provider.viewedArticles,
-                  'articles'.tr().toLowerCase(),
-                ),
-                _buildDocumentList(context, provider.viewedDocuments),
-              ],
-            );
-          },
+        title: Text(
+          'my_favorites'.tr(),
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
-    );
-  }
+      body: FutureBuilder<List<ContentModel>>(
+        future: _favoritesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.blue),
+            );
+          }
 
-  Widget _buildContentList(
-    BuildContext context,
-    List<ContentModel> items,
-    String type,
-  ) {
-    if (items.isEmpty) {
-      return _buildEmptyState(
-        'no_viewed_content'.tr(namedArgs: {'type': type}),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _buildListItem(
-          title: item.title,
-          subtitle:
-              item.subtitle ??
-              item.author ??
-              '${item.duration ?? ""} • ${"viewed".tr()}',
-          imageUrl: item.imageUrl ?? '',
-          isDocument: false,
-        );
-      },
-    );
-  }
+          if (snapshot.hasError) {
+            return Center(child: Text('error_loading'.tr()));
+          }
 
-  Widget _buildDocumentList(BuildContext context, List<MedicalDocument> items) {
-    if (items.isEmpty) {
-      return _buildEmptyState('no_viewed_documents'.tr());
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final doc = items[index];
-        return _buildListItem(
-          title: doc.title,
-          subtitle:
-              '${doc.category} • ${DateFormat('dd MMM yyyy', context.locale.toString()).format(doc.date)}',
-          imageUrl: '', // On utilisera une icône par défaut
-          isDocument: true,
-          type: doc.type.toString(),
-        );
-      },
+          final items = snapshot.data ?? [];
+          if (items.isEmpty) {
+            return _buildEmptyState('no_favorites'.tr());
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async => _reloadFavorites(),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(20),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return _buildFavoritePostCard(item);
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -134,13 +96,10 @@ class FavoritesPage extends StatelessWidget {
     );
   }
 
-  Widget _buildListItem({
-    required String title,
-    required String subtitle,
-    required String imageUrl,
-    required bool isDocument,
-    String? type,
-  }) {
+  Widget _buildFavoritePostCard(ContentModel item) {
+    final isVideo = item.videoUrl != null && item.videoUrl!.isNotEmpty;
+    final mediaUrl = isVideo ? item.videoUrl! : (item.imageUrl ?? '');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -150,58 +109,52 @@ class FavoritesPage extends StatelessWidget {
           BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(16),
-            ),
-            child: isDocument
-                ? Container(
-                    width: 100,
-                    height: 100,
-                    color: Colors.grey[50],
-                    child: Icon(
-                      type?.toUpperCase() == 'PDF'
-                          ? Icons.picture_as_pdf_outlined
-                          : Icons.image_outlined,
-                      color: Colors.blue.withAlpha(100),
-                      size: 40,
-                    ),
-                  )
-                : imageUrl.isNotEmpty
-                ? Image.network(
-                    UrlHelper.fixImageUrl(imageUrl),
-                    width: 100,
-                    height: 100,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      width: 100,
-                      height: 100,
+          if (mediaUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+              child: isVideo
+                  ? Container(
+                      height: 190,
+                      width: double.infinity,
                       color: Colors.grey[100],
-                      child: const Icon(
-                        Icons.play_circle_outline,
-                        color: Colors.blue,
+                      child: const Center(
+                        child: Icon(
+                          Icons.play_circle_outline,
+                          color: Colors.blue,
+                          size: 44,
+                        ),
+                      ),
+                    )
+                  : Image.network(
+                      UrlHelper.fixImageUrl(mediaUrl),
+                      height: 190,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 190,
+                        color: Colors.grey[100],
+                        child: const Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            color: Colors.blue,
+                            size: 40,
+                          ),
+                        ),
                       ),
                     ),
-                  )
-                : Container(
-                    width: 100,
-                    height: 100,
-                    color: Colors.grey[100],
-                    child: const Icon(
-                      Icons.article_outlined,
-                      color: Colors.blue,
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  item.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -211,15 +164,65 @@ class FavoritesPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  item.subtitle?.isNotEmpty == true
+                      ? item.subtitle!
+                      : (item.author ?? ''),
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
                 const SizedBox(height: 8),
-                const Icon(Icons.favorite, color: Colors.blue, size: 18),
+                Row(
+                  children: [
+                    Icon(
+                      isVideo ? Icons.play_circle_outline : Icons.article,
+                      color: Colors.blue,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isVideo ? 'videos'.tr() : 'articles'.tr(),
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () async {
+                        try {
+                          await FavoritePostsService.removeFavoritePost(
+                            item.id,
+                          );
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('removed_from_favorites'.tr()),
+                            ),
+                          );
+                          _reloadFavorites();
+                        } catch (e) {
+                          if (!mounted) return;
+                          final message = e is ApiException
+                              ? e.message
+                              : 'favorite_action_failed'.tr();
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(message)));
+                        }
+                      },
+                      icon: const Icon(Icons.favorite, size: 16),
+                      label: Text('remove'.tr()),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
         ],
       ),
     );

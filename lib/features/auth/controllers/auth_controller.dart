@@ -23,25 +23,59 @@ class AuthController extends ChangeNotifier {
         password: password,
       );
 
-      if (response['require2FA'] == true) {
+      final requires2FA = response['require2FA'] == true;
+      await StorageService.setRequires2FA(requires2FA);
+
+      if (requires2FA) {
         // navigate to OTP page with userId
         Navigator.pushNamed(
           context,
           '/otp-verification',
           arguments: {'userId': response['userId'], 'email': response['email']},
         );
+      } else {
+        await StorageService.saveSession(
+          accessToken: response['accessToken'],
+          refreshToken: response['refreshToken'],
+          userId: response['userId'],
+          role: response['role'],
+          imageUrl: response['imageUrl'],
+        );
+
+        EndPoint.client.setAuthToken(response['accessToken']);
+
+        final savedRole = response['role']?.toString().toUpperCase() ?? '';
+        final targetRoute =
+            (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE')
+            ? '/dashboard_specialiste'
+            : '/accueil';
+
+        if (!context.mounted) return;
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          targetRoute,
+          (route) => false,
+        );
       }
     } catch (e) {
-      if (e is ApiException && e.message == 'TOKEN_EXPIRED') {
-        // try refresh token
-        final refreshToken = await StorageService.getRefreshToken();
-        if (refreshToken != null) {
-          final response = await AuthService.refreshToken(
-            refreshToken: refreshToken,
-          );
-          EndPoint.client.setAuthToken(response['accessToken']);
-          // retry the original request
+      if (e is ApiException) {
+        if (e.message == 'TOKEN_EXPIRED') {
+          // try refresh token
+          final refreshToken = await StorageService.getRefreshToken();
+          if (refreshToken != null) {
+            final response = await AuthService.refreshToken(
+              refreshToken: refreshToken,
+            );
+            EndPoint.client.setAuthToken(response['accessToken']);
+            // retry the original request
+          }
+        } else {
+          // Set error message to display on UI (Invalid credentials, etc.)
+          errorMessage = e.message;
         }
+      } else {
+        // Handle unexpected errors
+        errorMessage = 'An unexpected error occurred. Please try again.';
       }
     } finally {
       isLoading = false;

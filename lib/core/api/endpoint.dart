@@ -17,16 +17,20 @@ class EndPoint {
   static const String signinVerify = 'users/signin/verify';
   static const String refreshToken = 'users/refresh-token';
   static const String deleteAccount = 'users/delete-account';
+  static const String changePassword = 'users/change-password';
+  static const String updateOtp = 'users/update-otp';
   static const String profile = 'users/profile';
   static const String whoami = 'users/whoami';
   static const String posts = 'users/posts';
   static const String publicExercises = 'users/public-exercises';
+  static const String favoritePosts = 'users/favorite-posts';
   static const String updateUser = 'users/update-user';
   static const String uploadImage = 'users/upload-image';
   static const String googleMobileCallback = 'users/auth/google/mobile';
   static String deleteUser(String id) => 'users/delete/$id';
   static String validateDoctor(String id) => 'users/validate-doctor/$id';
   static String validateAdmin(String id) => 'users/validate-admin/$id';
+  static String favoritePost(String postId) => 'users/favorite-posts/$postId';
 
   // ─── Google OAuth ─────────────────────────────────────────────────────────
   static const String googleLogin = 'users/auth/google';

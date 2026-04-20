@@ -22,4 +22,18 @@ class ProfileService {
   ) async {
     await EndPoint.client.patch(EndPoint.updateUser, body: specialist.toJson());
   }
+
+  static Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    return await EndPoint.client.patch(
+      EndPoint.changePassword,
+      body: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
+  }
+
+  static Future<Map<String, dynamic>> updateOtp() async {
+    return await EndPoint.client.patch(EndPoint.updateOtp);
+  }
 }

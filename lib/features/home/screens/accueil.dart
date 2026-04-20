@@ -3,11 +3,13 @@ import 'package:sahtek/core/api/endpoint.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:sahtek/core/widgets/custom_bottom_nav_bar.dart';
 import 'package:provider/provider.dart';
+import 'package:sahtek/core/api/http_client.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:sahtek/models/appointment_model.dart';
 import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/core/widgets/video_player_widget.dart';
+import 'package:sahtek/features/content_library/services/favorite_posts_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class AccueilPage extends StatefulWidget {
@@ -19,6 +21,9 @@ class AccueilPage extends StatefulWidget {
 
 class _AccueilPageState extends State<AccueilPage> {
   late final Future<List<_FeedPostItem>> _feedFuture = _fetchFeedItems();
+  final Set<String> _favoritePostIds = {};
+  bool _favoritesLoaded = false;
+  String? _updatingFavoriteId;
 
   @override
   void initState() {
@@ -26,6 +31,72 @@ class _AccueilPageState extends State<AccueilPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleNewGoogleUserFlow();
     });
+    _loadFavoritePostIds();
+  }
+
+  Future<void> _loadFavoritePostIds() async {
+    try {
+      final favorites = await FavoritePostsService.getFavoritePosts();
+      if (!mounted) return;
+      setState(() {
+        _favoritePostIds
+          ..clear()
+          ..addAll(favorites.map((item) => item.id));
+        _favoritesLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _favoritesLoaded = true;
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite(_FeedPostItem item) async {
+    if (item.id.isEmpty || !_favoritesLoaded || _updatingFavoriteId != null) {
+      return;
+    }
+
+    final isFavorite = _favoritePostIds.contains(item.id);
+    setState(() {
+      _updatingFavoriteId = item.id;
+    });
+
+    try {
+      if (isFavorite) {
+        await FavoritePostsService.removeFavoritePost(item.id);
+        if (!mounted) return;
+        setState(() {
+          _favoritePostIds.remove(item.id);
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('removed_from_favorites'.tr())));
+      } else {
+        await FavoritePostsService.addFavoritePost(item.id);
+        if (!mounted) return;
+        setState(() {
+          _favoritePostIds.add(item.id);
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('added_to_favorites'.tr())));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : 'favorite_action_failed'.tr();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _updatingFavoriteId = null;
+        });
+      }
+    }
   }
 
   Future<List<_FeedPostItem>> _fetchFeedItems() async {
@@ -458,6 +529,9 @@ class _AccueilPageState extends State<AccueilPage> {
   }
 
   Widget _buildFeedPostCard(_FeedPostItem item) {
+    final isFavorite = _favoritePostIds.contains(item.id);
+    final isUpdating = _updatingFavoriteId == item.id;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -513,6 +587,22 @@ class _AccueilPageState extends State<AccueilPage> {
                   ],
                 ),
               ),
+              if (!item.isVideo)
+                IconButton(
+                  onPressed: isUpdating ? null : () => _toggleFavorite(item),
+                  icon: isUpdating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite
+                              ? Colors.redAccent
+                              : Colors.grey[500],
+                        ),
+                ),
             ],
           ),
           const SizedBox(height: 12),

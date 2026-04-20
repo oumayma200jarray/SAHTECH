@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:sahtek/core/api/http_client.dart';
+import 'package:sahtek/core/services/storage_service.dart';
+import 'package:sahtek/features/profile/services/profile_service.dart';
 
 class SecurityPrivacyPage extends StatefulWidget {
   const SecurityPrivacyPage({super.key});
@@ -9,8 +12,55 @@ class SecurityPrivacyPage extends StatefulWidget {
 }
 
 class _SecurityPrivacyPageState extends State<SecurityPrivacyPage> {
-  bool biometricAuth = true;
   bool doubleAuth = false;
+  bool isUpdatingSecurity = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSecurityState();
+  }
+
+  Future<void> _loadSecurityState() async {
+    final storedTwoFactor = await StorageService.getRequires2FA();
+    if (!mounted) return;
+    setState(() {
+      doubleAuth = storedTwoFactor;
+    });
+  }
+
+  Future<void> _toggleTwoFactor(bool value) async {
+    setState(() {
+      isUpdatingSecurity = true;
+    });
+
+    try {
+      await ProfileService.updateOtp();
+      await StorageService.setRequires2FA(value);
+      if (!mounted) return;
+      setState(() {
+        doubleAuth = value;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('security_method_updated'.tr())),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : 'security_update_failed'.tr();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUpdatingSecurity = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,18 +89,17 @@ class _SecurityPrivacyPageState extends State<SecurityPrivacyPage> {
           children: [
             _buildSectionTitle('login_and_access'.tr()),
             _buildSwitchTile(
-              Icons.fingerprint,
-              'biometric_auth'.tr(),
-              biometricAuth,
-              (val) => setState(() => biometricAuth = val),
-            ),
-            _buildSwitchTile(
               Icons.security,
               'two_factor_auth'.tr(),
               doubleAuth,
-              (val) => setState(() => doubleAuth = val),
+              _toggleTwoFactor,
+              isBusy: isUpdatingSecurity,
             ),
-            _buildActionTile(Icons.key_outlined, 'change_password_action'.tr()),
+            _buildActionTile(
+              Icons.key_outlined,
+              'change_password_action'.tr(),
+              onTap: () => Navigator.pushNamed(context, '/change-password'),
+            ),
             const SizedBox(height: 32),
             _buildSectionTitle('data_management'.tr()),
             _buildActionTile(Icons.storage_outlined, 'manage_data_access'.tr()),
@@ -123,8 +172,9 @@ class _SecurityPrivacyPageState extends State<SecurityPrivacyPage> {
     IconData icon,
     String title,
     bool value,
-    Function(bool) onChanged,
-  ) {
+    ValueChanged<bool> onChanged, {
+    bool isBusy = false,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -146,14 +196,18 @@ class _SecurityPrivacyPageState extends State<SecurityPrivacyPage> {
         ),
         trailing: Switch(
           value: value,
-          onChanged: onChanged,
+          onChanged: isBusy ? null : onChanged,
           activeColor: Colors.blue,
         ),
       ),
     );
   }
 
-  Widget _buildActionTile(IconData icon, String title) {
+  Widget _buildActionTile(
+    IconData icon,
+    String title, {
+    VoidCallback? onTap,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -174,7 +228,7 @@ class _SecurityPrivacyPageState extends State<SecurityPrivacyPage> {
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
         trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
-        onTap: () {},
+        onTap: onTap,
       ),
     );
   }
