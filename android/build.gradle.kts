@@ -6,15 +6,14 @@ allprojects {
 }
 
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
-rootProject.layout.buildDirectory.set(newBuildDir)
+rootProject.layout.buildDirectory.value(newBuildDir)
 
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.set(newSubprojectBuildDir)
+    project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 
-// La dépendance d'évaluation est gérée automatiquement par Flutter ou doit être spécifiée
-// uniquement là où une dépendance réelle existe.
+// Nettoyage standard
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

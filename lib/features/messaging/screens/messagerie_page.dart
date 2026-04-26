@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/core/widgets/custom_bottom_nav_bar.dart';
 import 'package:sahtek/services/chat_service.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'messagerie_details_page.dart';
 
 class MessageriePage extends StatefulWidget {
@@ -241,7 +242,7 @@ class _MessageriePageState extends State<MessageriePage> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -253,7 +254,8 @@ class _MessageriePageState extends State<MessageriePage> {
               children: [
                 CircleAvatar(
                   radius: 26,
-                  backgroundImage: NetworkImage(conv.avatarUrl),
+                  backgroundImage:
+                      NetworkImage(UrlHelper.fixImageUrl(conv.avatarUrl)),
                   backgroundColor: Colors.grey[200],
                 ),
                 if (conv.isOnline)
@@ -370,10 +372,15 @@ class _MessageriePageState extends State<MessageriePage> {
   String _formatTimestamp(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    if (diff.inMinutes < 60) return "${diff.inMinutes} min";
-    if (diff.inHours < 24)
+    if (diff.inMinutes < 60) {
+      return "${diff.inMinutes} min";
+    }
+    if (diff.inHours < 24) {
       return "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
-    if (diff.inDays == 1) return "hier".tr();
+    }
+    if (diff.inDays == 1) {
+      return "hier".tr();
+    }
     return "${date.day}/${date.month}";
   }
 

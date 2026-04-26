@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 
 class AIDiagnosticFeedback extends StatefulWidget {
   final double elbowFlexion;
+  final double shoulderImbalance;
+  final String? aiSummary;
   final Future<void> Function() onGeneratePDF;
 
   const AIDiagnosticFeedback({
     Key? key,
     required this.elbowFlexion,
+    required this.shoulderImbalance,
+    this.aiSummary,
     required this.onGeneratePDF,
   }) : super(key: key);
 
@@ -50,31 +54,38 @@ class _AIDiagnosticFeedbackState extends State<AIDiagnosticFeedback> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.auto_awesome, color: Color(0xFF0D54F2), size: 14),
-                SizedBox(width: 8),
-                Text("MOTEUR DE DIAGNOSTIC IA CLAUDE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0D54F2))),
+                const Icon(Icons.auto_awesome, color: Color(0xFF0D54F2), size: 14),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "MOTEUR DE DIAGNOSTIC IA CLAUDE",
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0D54F2)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 20),
             _buildFeedbackAlert(
-              icon: Icons.warning_amber_rounded,
-              color: const Color(0xFFFDF2F2),
-              iconColor: const Color(0xFFEF4444),
-              title: "CORRECTION PRIORITAIRE : FLEXION DU COUDE",
-              description:
-                  "L'IA a détecté une flexion du coude de ${widget.elbowFlexion.toInt()}° (seuil critique: 150°). Vous utilisez vos biceps pour compenser le manque de force du deltoïde antérieur. "
-                  "Action corrective : Gardez le bras tendu tout au long du mouvement d'abduction.",
+              icon: Icons.auto_awesome,
+              color: const Color(0xFFF0F7FF),
+              iconColor: const Color(0xFF0D54F2),
+              title: "SYNTHÈSE DE SESSION IA",
+              description: widget.aiSummary ??
+                  "Analyse en cours... Votre mouvement a été capturé. L'IA a noté une bonne exécution générale malgré quelques compensations musculaires à surveiller.",
             ),
             const SizedBox(height: 16),
             _buildFeedbackAlert(
               icon: Icons.query_stats,
-              color: const Color(0xFFF0F7FF),
-              iconColor: const Color(0xFF0D54F2),
-              title: "Stabilité Scapulaire (Validation Sémantique)",
+              color: const Color(0xFFF8FAFF),
+              iconColor: Colors.blueGrey,
+              title: "Symétrie & Stabilité Scapulaire",
               description:
-                  "Analyse du schéma : Alignement dynamique stable. La symétrie de 94% indique que le recrutement des rotateurs est efficace malgré la compensation périphérique.",
+                  "Indice de stabilité : ${(100 - widget.shoulderImbalance).clamp(0, 100).toInt()}% d'alignement. "
+                  "${widget.shoulderImbalance < 10 ? 'Excellent maintien des ceintures scapulaires.' : 'Attention à ne pas hausser l\'épaule durant l\'effort.'}",
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -93,9 +104,12 @@ class _AIDiagnosticFeedbackState extends State<AIDiagnosticFeedback> {
                         width: 20,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
-                    : const Text(
-                        "Générer Rapport Technique Détaillé (PDF)",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                    : const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "Générer Rapport Technique Détaillé (PDF)",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                        ),
                       ),
               ),
             ),

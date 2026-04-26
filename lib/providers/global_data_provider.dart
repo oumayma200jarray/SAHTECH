@@ -297,8 +297,9 @@ class GlobalDataProvider extends ChangeNotifier {
     historicalAngles.add(result.currentValue);
     historicalPain.add(result.painLevel ?? 0.0);
 
-    // Créer un nouvel objet avec l'historique complet
+    // Créer un nouvel objet avec l'historique complet et toutes les métriques
     final enrichedResult = IATrackingData(
+      exerciseId: result.exerciseId,
       title: result.title,
       currentValue: result.currentValue,
       unit: result.unit,
@@ -310,6 +311,17 @@ class GlobalDataProvider extends ChangeNotifier {
       painLevel: result.painLevel,
       date: result.date,
       sessionFrames: result.sessionFrames,
+      trunkLeanAngle: result.trunkLeanAngle,
+      elbowFlexion: result.elbowFlexion,
+      isPostureCorrect: result.isPostureCorrect,
+      shoulderImbalance: result.shoulderImbalance,
+      repetitionCount: result.repetitionCount,
+      totalRepsPlanned: result.totalRepsPlanned,
+      avgTrunkLean: result.avgTrunkLean,
+      maxTrunkLean: result.maxTrunkLean,
+      minElbowFlexion: result.minElbowFlexion,
+      avgShoulderImbalance: result.avgShoulderImbalance,
+      aiSummary: result.aiSummary,
     );
 
     lastTrackingResult = enrichedResult;

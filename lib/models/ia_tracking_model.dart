@@ -14,14 +14,27 @@ class IATrackingData {
   final double? painLevel; // Niveau de douleur final (0-10)
   final DateTime date;
   final List<String> sessionFrames; // Pour le Time-Lapse
+  String? aiSummary; // Conclusion d'expert générée en fin de session
 
   // Métriques de qualité du mouvement (pour éviter que l'IA ne valide des mouvements "tricheurs")
   double
-  trunkLeanAngle; // Angle d'inclinaison du corps (le patient se penche pour tricher)
+  trunkLeanAngle; // Angle d'inclinaison du corps (absolu)
+  double
+  signedTrunkLean; // Inclinaison signée (+ droite, - gauche)
   double
   elbowFlexion; // Angle du coude (le bras doit rester tendu pour certains exercices)
   bool
   isPostureCorrect; // Flag global indiquant si le mouvement respecte la biomécanique
+  double
+  shoulderImbalance; // Différence de hauteur entre les épaules (en pixels ou ratio)
+  
+  // Statistiques de session (Senior AI Analytics)
+  int repetitionCount;
+  int totalRepsPlanned;
+  double avgTrunkLean;
+  double maxTrunkLean;
+  double minElbowFlexion;
+  double avgShoulderImbalance;
 
   IATrackingData({
     this.exerciseId,
@@ -37,8 +50,17 @@ class IATrackingData {
     required this.date,
     this.sessionFrames = const [],
     this.trunkLeanAngle = 0.0,
+    this.signedTrunkLean = 0.0,
     this.elbowFlexion = 180.0,
     this.isPostureCorrect = true,
+    this.aiSummary,
+    this.shoulderImbalance = 0.0,
+    this.repetitionCount = 0,
+    this.totalRepsPlanned = 10,
+    this.avgTrunkLean = 0.0,
+    this.maxTrunkLean = 0.0,
+    this.minElbowFlexion = 180.0,
+    this.avgShoulderImbalance = 0.0,
   });
 
   /// Crée un objet de tracking à partir d'un exercice (ContentModel)
@@ -68,8 +90,17 @@ class IATrackingData {
     'date': date.toIso8601String(),
     'sessionFrames': sessionFrames,
     'trunkLeanAngle': trunkLeanAngle,
+    'signedTrunkLean': signedTrunkLean,
     'elbowFlexion': elbowFlexion,
     'isPostureCorrect': isPostureCorrect,
+    'aiSummary': aiSummary,
+    'shoulderImbalance': shoulderImbalance,
+    'repetitionCount': repetitionCount,
+    'totalRepsPlanned': totalRepsPlanned,
+    'avgTrunkLean': avgTrunkLean,
+    'maxTrunkLean': maxTrunkLean,
+    'minElbowFlexion': minElbowFlexion,
+    'avgShoulderImbalance': avgShoulderImbalance,
   };
 
   factory IATrackingData.fromJson(Map<String, dynamic> json) => IATrackingData(
@@ -98,7 +129,16 @@ class IATrackingData {
         (json['sessionFrames'] as List?)?.map((e) => e as String).toList() ??
         [],
     trunkLeanAngle: (json['trunkLeanAngle'] ?? 0.0).toDouble(),
+    signedTrunkLean: (json['signedTrunkLean'] ?? 0.0).toDouble(),
     elbowFlexion: (json['elbowFlexion'] ?? 180.0).toDouble(),
     isPostureCorrect: json['isPostureCorrect'] ?? true,
+    aiSummary: json['aiSummary'],
+    shoulderImbalance: (json['shoulderImbalance'] ?? 0.0).toDouble(),
+    repetitionCount: json['repetitionCount'] ?? 0,
+    totalRepsPlanned: json['totalRepsPlanned'] ?? 10,
+    avgTrunkLean: (json['avgTrunkLean'] ?? 0.0).toDouble(),
+    maxTrunkLean: (json['maxTrunkLean'] ?? 0.0).toDouble(),
+    minElbowFlexion: (json['minElbowFlexion'] ?? 180.0).toDouble(),
+    avgShoulderImbalance: (json['avgShoulderImbalance'] ?? 0.0).toDouble(),
   );
 }

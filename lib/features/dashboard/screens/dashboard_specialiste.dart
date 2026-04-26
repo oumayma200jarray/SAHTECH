@@ -12,7 +12,8 @@ class DashboardSpecialistePage extends StatefulWidget {
   const DashboardSpecialistePage({Key? key}) : super(key: key);
 
   @override
-  State<DashboardSpecialistePage> createState() => _DashboardSpecialistePageState();
+  State<DashboardSpecialistePage> createState() =>
+      _DashboardSpecialistePageState();
 }
 
 class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
@@ -46,7 +47,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
                     const SizedBox(height: 24),
                     _buildHeader(stats.doctorName),
                     const SizedBox(height: 32),
-                    
+
                     _buildNewPublicationButton(context),
                     const SizedBox(height: 32),
 
@@ -156,7 +157,8 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
                             itemCount: snapshot.data!.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: 16),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 16),
                             itemBuilder: (context, index) {
                               final doc = snapshot.data![index];
                               return _buildDocumentCard(doc);
@@ -275,8 +277,14 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             minWidth: (MediaQuery.of(context).size.width - 50) / 2,
           ),
           children: [
-            Text('mode_specialist'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            Text('mode_patient'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            Text(
+              'mode_specialist'.tr(),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            Text(
+              'mode_patient'.tr(),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
           ],
         ),
       ),
@@ -288,7 +296,9 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
       onTap: () async {
         final result = await Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const NouvellePublicationPage()),
+          MaterialPageRoute(
+            builder: (context) => const NouvellePublicationPage(),
+          ),
         );
         // If a new publication was added, we can refresh the state
         if (result == true) {
@@ -325,7 +335,11 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
                     color: Colors.white.withOpacity(0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add_to_photos, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.add_to_photos,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Column(
@@ -687,10 +701,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             doc.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 4),
           Text(
