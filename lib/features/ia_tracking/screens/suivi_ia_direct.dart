@@ -4,14 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:camera/camera.dart';
-import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'package:sahtek/models/pose_model.dart';
 import 'package:sahtek/models/ia_tracking_model.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:sahtek/features/ia_tracking/services/pose_detection_service.dart';
 import 'package:sahtek/features/ia_tracking/widgets/pose_painter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:sahtek/features/ia_tracking/controllers/tracking_controller.dart';
-import 'package:sahtek/features/ia_tracking/services/claude_ai_service.dart';
+import 'package:sahtek/features/ia_tracking/services/base_ai_service.dart';
+import 'package:sahtek/features/ia_tracking/services/gemini_ai_service.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart' as mlkit;
 import 'package:sahtek/core/widgets/video_player_widget.dart';
 
 class SuiviIADirectPage extends StatefulWidget {
@@ -25,9 +27,11 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     with WidgetsBindingObserver {
   final TrackingController _trackingController = TrackingController();
   final FlutterTts _flutterTts = FlutterTts();
-  final ClaudeAIService _claudeAIService = ClaudeAIService();
+  
+  // Utilisation de l'interface BaseAIService pour permettre le switch Gemini/Claude
+  final BaseAIService _aiService = GeminiAIService(); 
   final PoseDetectionService _poseDetectionService = PoseDetectionService();
-
+  
   CameraController? _cameraController;
   bool _isCameraReady = false;
   bool _isProcessing = false;
@@ -37,6 +41,7 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
   // Stats session
   double _sessionMaxAngle = 0.0;
   final List<String> _sessionFrames = [];
+  int _totalFramesAnalyzed = 0;
 
   bool _isAILoading = false;
   DateTime _lastAICallTime = DateTime.fromMillisecondsSinceEpoch(0);
@@ -84,7 +89,7 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
 
       _cameraController = CameraController(
         frontCamera,
-        ResolutionPreset.medium,
+        ResolutionPreset.medium, 
         enableAudio: false,
         imageFormatGroup: (!kIsWeb && Platform.isIOS)
             ? ImageFormatGroup.bgra8888
@@ -94,10 +99,6 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
       await _cameraController!.initialize();
       if (mounted) {
         setState(() => _isCameraReady = true);
-        if (kIsWeb ||
-            (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-          debugPrint('ML Kit Pose Detection only works on Android/iOS');
-        }
         _startAnalysisTimer();
       }
     } catch (e) {
@@ -108,40 +109,49 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
   void _startAnalysisTimer() {
     _analysisTimer?.cancel();
     _analysisTimer = Timer.periodic(
-      const Duration(milliseconds: 350),
+      const Duration(milliseconds: 250), // 4 FPS - Stable
       (_) => _captureAndAnalyze(),
     );
   }
 
-  // ÉTAPE A.1 : Acquisition Temporelle (Polling)
-  // Appelée dynamiquement chaque 1 seconde par _analysisTimer
   Future<void> _captureAndAnalyze() async {
     if (!_isCameraReady || _isProcessing || _cameraController == null) return;
     _isProcessing = true;
 
     try {
-      final image = await _cameraController!.takePicture();
-      _sessionFrames.add(image.path);
+      final XFile file = await _cameraController!.takePicture();
+      final mlkit.InputImage inputImage = mlkit.InputImage.fromFilePath(file.path);
+      
+      final List<Pose> poses = await _poseDetectionService.processImage(inputImage);
 
-      // ÉTAPE A.2 : Encapsulation de la trame en InputImage (Format attendu par ML Kit)
-      // Ceci constitue le "Dataset dynamique" envoyé au modèle
-      final inputImage = InputImage.fromFilePath(image.path);
-
-      // ÉTAPE A.3 : Inférence du Modèle Deep Learning (Vision par Ordinateur Google ML Kit Pose Detection)
-      // Le modèle analyse l'image et retourne une liste de "Poses" (contenant 33 landmarks du corps)
-      final poses = await _poseDetectionService.processImage(inputImage);
-
-      if (mounted && poses.isNotEmpty) {
-        setState(() => _poses = poses);
-        // ÉTAPE B : Interprétation Biomecanique
-        // On envoie la pose détectée au contrôleur pour calculer les angles (ex: angle de l'épaule)
-        _trackingController.processPose(poses.first);
+      bool shouldKeepFrame = false;
+      if (mounted) {
+        setState(() {
+          _poses = poses;
+          if (poses.isNotEmpty) {
+            _trackingController.processPose(poses.first);
+            
+            // Capture pour le Time-Lapse (Video d'exécution)
+            if (_totalFramesAnalyzed % 8 == 0 && _sessionFrames.length < 15) {
+              _sessionFrames.add(file.path);
+              shouldKeepFrame = true;
+            }
+          }
+          _totalFramesAnalyzed++;
+        });
       }
+      
+      if (!shouldKeepFrame) {
+        await File(file.path).delete();
+      }
+      
     } catch (e) {
-      debugPrint('Error capture: $e');
+      debugPrint('Capture Error: $e');
     } finally {
       if (mounted) {
-        setState(() => _isProcessing = false);
+        setState(() {
+          _isProcessing = false;
+        });
       }
     }
   }
@@ -151,9 +161,11 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     final data = _trackingController.trackingData;
     if (data == null) return;
 
-    if (data.currentValue > _sessionMaxAngle) {
-      setState(() => _sessionMaxAngle = data.currentValue);
-    }
+    setState(() {
+      if (data.currentValue > _sessionMaxAngle) {
+        _sessionMaxAngle = data.currentValue;
+      }
+    });
 
     _checkAndTriggerAI(data);
   }
@@ -214,22 +226,19 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     setState(() => _isAILoading = true);
     _lastAICallTime = DateTime.now();
 
-    // ÉTAPE E.2 : Exécution Terminale - Génération du Feedback via LLM
-    // Envoi des données contextuelles (angle, objectif, mouvement) à l'API Claude 3.5 Sonnet
-    // Le modèle est "prompté" avec un rôle de kinésithérapeute pour générer un retour pertinent.
-    final feedback = await _claudeAIService.getFeedback(data);
+    // Senior AI: On supprime la capture d'image pour les remarques "Live"
+    // Cela divise le temps de réponse par 3 et rend le coaching instantané.
+    // L'image n'est envoyée que pour le compte-rendu final de session.
+    final feedback = await _aiService.getFeedback(data, imageBytes: null);
 
     if (mounted) {
       setState(() {
         _isAILoading = false;
         if (_trackingController.state == TrackingState.completed) return;
 
-        // ÉTAPE E.3 : Restitution Audio (Text-to-Speech)
-        // On lit le texte généré par l'IA à voix haute pour guider l'utilisateur sans qu'il ait à regarder l'écran.
         if (feedback != null) {
           _flutterTts.speak(feedback);
         } else {
-          // Fallback sur le message généré par le contrôleur local
           _flutterTts.speak(_trackingController.feedbackMessage);
         }
       });
@@ -241,7 +250,6 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     WidgetsBinding.instance.removeObserver(this);
     _analysisTimer?.cancel();
     _cameraController?.dispose();
-    _poseDetectionService.dispose();
     _trackingController.dispose();
     super.dispose();
   }
@@ -298,6 +306,16 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
                           ),
                         ),
                         const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text("POSES: ${_poses.length}", style: const TextStyle(color: Colors.white, fontSize: 10)),
+                            Text("STREAM: ${_cameraController?.value.isStreamingImages ?? false}", style: const TextStyle(color: Colors.white, fontSize: 8)),
+                            Text("PROC: $_isProcessing", style: const TextStyle(color: Colors.white, fontSize: 8)),
+                          ],
+                        ),
+                        const SizedBox(width: 8),
                         const Text(
                           "SUIVI EN DIRECT",
                           style: TextStyle(
@@ -345,7 +363,7 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
                   child: Column(
                     children: [
                       Text(
-                        data?.title.toUpperCase() ?? "FLEXION D'ÉPAULE",
+                        "${data?.title.toUpperCase() ?? "FLEXION D'ÉPAULE"} ${_trackingController.isLeftArmActive == true ? "(BRAS GAUCHE)" : _trackingController.isLeftArmActive == false ? "(BRAS DROIT)" : ""}",
                         style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 10,
@@ -441,7 +459,7 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                "GUIDAGE IA",
+                                "GUIDAGE SAHTECH",
                                 style: TextStyle(
                                   color: Colors.grey,
                                   fontSize: 10,
@@ -532,7 +550,7 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
 
                   // Télémétrie bas de page
                   Text(
-                    "CAPTEUR IA : ACTIF  •  PRÉCISION 98.4%",
+                    "CAPTEUR IA : ACTIF  •  QUALITÉ DU MOUVEMENT",
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.3),
                       fontSize: 10,
@@ -587,6 +605,34 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     );
   }
 
+  InputImageRotation _mapRotation(int sensorOrientation) {
+    switch (sensorOrientation) {
+      case 90:
+        return InputImageRotation.rotation90deg;
+      case 180:
+        return InputImageRotation.rotation180deg;
+      case 270:
+        return InputImageRotation.rotation270deg;
+      case 0:
+      default:
+        return InputImageRotation.rotation0deg;
+    }
+  }
+
+  mlkit.InputImageRotation _mapMLKitRotation(int sensorOrientation) {
+    switch (sensorOrientation) {
+      case 90:
+        return mlkit.InputImageRotation.rotation90deg;
+      case 180:
+        return mlkit.InputImageRotation.rotation180deg;
+      case 270:
+        return mlkit.InputImageRotation.rotation270deg;
+      case 0:
+      default:
+        return mlkit.InputImageRotation.rotation0deg;
+    }
+  }
+
   Widget _buildCameraAndOverlay() {
     if (!_isCameraReady || _cameraController == null) {
       return Container(color: Colors.black);
@@ -614,7 +660,10 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
                   _mapRotation(
                     _cameraController!.description.sensorOrientation,
                   ),
-                  isFrontCamera: false,
+                  isFrontCamera: _cameraController?.description.lensDirection ==
+                      CameraLensDirection.front,
+                  isLeftArmActive: _trackingController.isLeftArmActive,
+                  currentAngle: _trackingController.trackingData?.currentValue ?? 0.0,
                 ),
               ),
           ],
@@ -623,27 +672,14 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
     );
   }
 
-  InputImageRotation _mapRotation(int sensorOrientation) {
-    switch (sensorOrientation) {
-      case 90:
-        return InputImageRotation.rotation90deg;
-      case 180:
-        return InputImageRotation.rotation180deg;
-      case 270:
-        return InputImageRotation.rotation270deg;
-      case 0:
-      default:
-        return InputImageRotation.rotation0deg;
-    }
-  }
-
-  void _finishSession() {
+  Future<void> _finishSession() async {
     final data = _trackingController.trackingData;
     if (data != null) {
       final List<double> trackedHistory =
           _trackingController.sessionAngleHistory;
       final double bestValidAngle = _trackingController.bestValidAngle;
-      final finalData = IATrackingData(
+      
+      final tempFinalData = IATrackingData(
         title: data.title,
         currentValue: bestValidAngle > 0 ? bestValidAngle : _sessionMaxAngle,
         unit: data.unit,
@@ -654,14 +690,49 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
         date: DateTime.now(),
         sessionFrames: _sessionFrames,
         trunkLeanAngle: data.trunkLeanAngle,
+        signedTrunkLean: data.signedTrunkLean,
         elbowFlexion: data.elbowFlexion,
         isPostureCorrect: data.isPostureCorrect,
+        repetitionCount: data.repetitionCount,
+        totalRepsPlanned: data.totalRepsPlanned,
+        avgTrunkLean: data.avgTrunkLean,
+        maxTrunkLean: data.maxTrunkLean,
+        minElbowFlexion: data.minElbowFlexion,
+        avgShoulderImbalance: data.avgShoulderImbalance,
+      );
+
+      // Génération de la synthèse AI finale
+      final aiSummary = await _aiService.generateSessionSummary(tempFinalData);
+      
+      final finalData = IATrackingData(
+        title: tempFinalData.title,
+        currentValue: tempFinalData.currentValue,
+        unit: tempFinalData.unit,
+        objective: tempFinalData.objective,
+        precision: tempFinalData.precision,
+        guidanceText: tempFinalData.guidanceText,
+        angleHistory: tempFinalData.angleHistory,
+        date: tempFinalData.date,
+        sessionFrames: tempFinalData.sessionFrames,
+        trunkLeanAngle: tempFinalData.trunkLeanAngle,
+        signedTrunkLean: tempFinalData.signedTrunkLean,
+        elbowFlexion: tempFinalData.elbowFlexion,
+        isPostureCorrect: tempFinalData.isPostureCorrect,
+        repetitionCount: tempFinalData.repetitionCount,
+        totalRepsPlanned: tempFinalData.totalRepsPlanned,
+        avgTrunkLean: tempFinalData.avgTrunkLean,
+        maxTrunkLean: tempFinalData.maxTrunkLean,
+        minElbowFlexion: tempFinalData.minElbowFlexion,
+        avgShoulderImbalance: tempFinalData.avgShoulderImbalance,
+        aiSummary: aiSummary,
       );
 
       final provider = Provider.of<GlobalDataProvider>(context, listen: false);
       provider.saveIATrackingResult(finalData);
 
-      Navigator.pushReplacementNamed(context, '/resultat_test_ia');
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/resultat_test_ia');
+      }
     }
   }
 }

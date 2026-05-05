@@ -1,56 +1,62 @@
-import 'dart:math' as math;
-import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart' as mlkit;
+import 'package:sahtek/models/pose_model.dart';
 
 class PoseDetectionService {
-  late PoseDetector _poseDetector;
+  final mlkit.PoseDetector _poseDetector = mlkit.PoseDetector(
+    options: mlkit.PoseDetectorOptions(
+      mode: mlkit.PoseDetectionMode.single,
+      model: mlkit.PoseDetectionModel.accurate, // Senior AI: Plus de précision pour les angles
+    ),
+  );
 
-  PoseDetectionService() {
-    _poseDetector = PoseDetector(
-      options: PoseDetectorOptions(
-        // OPTIMISATION : PoseDetectionMode.stream est crucial pour le temps réel car il
-        // garde en mémoire les points de l'image précédente pour accélérer la détection (Tracking).
-        mode: PoseDetectionMode.stream,
-        // OPTIMISATION : PoseDetectionModel.base est le modèle standard. 
-        // Il est beaucoup plus rapide que 'accurate' tout en restant très précis pour la rééducation.
-        model: PoseDetectionModel.base,
-      ),
-    );
-  }
-
-  /// Traite une image provenant du flux caméra
-  Future<List<Pose>> processImage(InputImage inputImage) async {
+  Future<List<Pose>> processImage(mlkit.InputImage inputImage) async {
     try {
-      final List<Pose> poses = await _poseDetector.processImage(inputImage);
-      return poses;
+      final mlkitPoses = await _poseDetector.processImage(inputImage);
+      if (mlkitPoses.isNotEmpty) {
+        // debugPrint('MLKit Service: Found ${mlkitPoses.length} poses');
+      }
+      return mlkitPoses.map((p) => _mapToCustomPose(p)).toList();
     } catch (e) {
-      print('Erreur PoseDetectionService: $e');
+      debugPrint('MLKit Service Error: $e');
       return [];
     }
   }
 
-  /// Calcule l'angle entre trois points (en degrés)
-  double calculateAngle(
-    PoseLandmark first,
-    PoseLandmark second,
-    PoseLandmark third,
-  ) {
-    double angle =
-        (math.atan2(third.y - second.y, third.x - second.x) -
-                math.atan2(first.y - second.y, first.x - second.x))
-            .abs();
+  Pose _mapToCustomPose(mlkit.Pose mlkitPose) {
+    final Map<PoseLandmarkType, PoseLandmark> customLandmarks = {};
+    
+    // Mapping manuel des landmarks critiques
+    mlkitPose.landmarks.forEach((type, landmark) {
+      PoseLandmarkType? customType;
+      switch (type) {
+        case mlkit.PoseLandmarkType.leftShoulder: customType = PoseLandmarkType.leftShoulder; break;
+        case mlkit.PoseLandmarkType.rightShoulder: customType = PoseLandmarkType.rightShoulder; break;
+        case mlkit.PoseLandmarkType.leftElbow: customType = PoseLandmarkType.leftElbow; break;
+        case mlkit.PoseLandmarkType.rightElbow: customType = PoseLandmarkType.rightElbow; break;
+        case mlkit.PoseLandmarkType.leftWrist: customType = PoseLandmarkType.leftWrist; break;
+        case mlkit.PoseLandmarkType.rightWrist: customType = PoseLandmarkType.rightWrist; break;
+        case mlkit.PoseLandmarkType.leftHip: customType = PoseLandmarkType.leftHip; break;
+        case mlkit.PoseLandmarkType.rightHip: customType = PoseLandmarkType.rightHip; break;
+        case mlkit.PoseLandmarkType.leftKnee: customType = PoseLandmarkType.leftKnee; break;
+        case mlkit.PoseLandmarkType.rightKnee: customType = PoseLandmarkType.rightKnee; break;
+        default: break; // On ignore les autres points (visage, pieds, etc.) pour optimiser
+      }
 
-    // Conversion en degrés
-    double degrees = angle * 180.0 / math.pi;
+      if (customType != null) {
+        customLandmarks[customType] = PoseLandmark(
+          type: customType,
+          x: landmark.x,
+          y: landmark.y,
+          z: landmark.z,
+          likelihood: landmark.likelihood,
+        );
+      }
+    });
 
-    // S'assurer que l'angle est entre 0 et 180
-    if (degrees > 180.0) {
-      degrees = 360.0 - degrees;
-    }
-
-    return degrees;
+    return Pose(landmarks: customLandmarks);
   }
 
-  /// Libère les ressources
   void dispose() {
     _poseDetector.close();
   }

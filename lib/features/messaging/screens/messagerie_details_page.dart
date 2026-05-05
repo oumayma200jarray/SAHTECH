@@ -10,10 +10,10 @@ class MessagerieDetailsPage extends StatefulWidget {
   final String doctorName;
 
   const MessagerieDetailsPage({
-    Key? key,
+    super.key,
     required this.conversationId,
     required this.doctorName,
-  }) : super(key: key);
+  });
 
   @override
   State<MessagerieDetailsPage> createState() => _MessagerieDetailsPageState();
@@ -90,6 +90,8 @@ class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
         final conversationId = payload['conversationId']?.toString() ?? '';
         if (conversationId == widget.conversationId) {
           _syncMessagesFromEvent();
+        } else {
+          _showNotification(payload);
         }
       });
 
@@ -146,11 +148,18 @@ class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${notification['senderName']}: ${notification['preview']}',
+          '${notification['senderName'] ?? 'Nouveau message'}: ${notification['preview'] ?? ''}',
         ),
         duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF0D54F2),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
       ),
     );
   }
@@ -326,7 +335,7 @@ class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                 ),
               ],
@@ -348,7 +357,7 @@ class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(

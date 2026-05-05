@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sahtek/features/auth/services/google_auth_service.dart';
 import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/api/endpoint.dart';
+import 'package:sahtek/core/services/push_notification_service.dart';
 
 class GoogleAuthController extends ChangeNotifier {
   bool isLoading = false;
@@ -32,6 +33,7 @@ class GoogleAuthController extends ChangeNotifier {
       );
 
       EndPoint.client.setAuthToken(response['accessToken']);
+      await PushNotificationService.syncStoredTokenToBackend();
 
       if (!context.mounted) return;
 

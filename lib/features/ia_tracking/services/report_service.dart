@@ -4,19 +4,16 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:sahtek/models/ia_tracking_model.dart';
+import 'package:sahtek/models/ia_tracking_model.dart';import 'package:sahtek/core/config/app_config.dart';
 
 /// Service responsable de la communication avec le backend pour la génération de rapports.
 class ReportService {
-  // TODO: Remplacer par l'URL réelle de votre serveur NestJS
-  static const String _baseUrl = 'http://YOUR_BACKEND_IP:3000/reports';
-
   /// Envoie les données de tracking au backend, télécharge le PDF et l'ouvre.
   Future<void> generateAndOpenReport(IATrackingData data) async {
     try {
       final response = await http
           .post(
-            Uri.parse('$_baseUrl/generate'),
+            Uri.parse('${AppConfig.apiBaseUrl}/reports/generate'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(data.toJson()),
           )

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sahtek/features/auth/services/auth_service.dart';
 import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/api/endpoint.dart';
+import 'package:sahtek/core/services/push_notification_service.dart';
 
 class OtpController extends ChangeNotifier {
   bool isLoading = false;
@@ -33,18 +34,16 @@ class OtpController extends ChangeNotifier {
 
       // set token for all future requests
       EndPoint.client.setAuthToken(response['accessToken']);
+      await PushNotificationService.syncStoredTokenToBackend();
 
       final savedRole = response['role']?.toString().toUpperCase() ?? '';
-      final targetRoute = (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE') 
-          ? '/dashboard_specialiste' 
+      final targetRoute =
+          (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE')
+          ? '/dashboard_specialiste'
           : '/accueil';
 
       if (!context.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        targetRoute,
-        (route) => false,
-      );
+      Navigator.pushNamedAndRemoveUntil(context, targetRoute, (route) => false);
     } catch (e) {
       errorMessage = e.toString();
       notifyListeners();

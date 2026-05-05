@@ -8,6 +8,7 @@ class StorageService {
   static const _imageUrl = 'imageUrl';
   static const _needsProfileCompletion = 'needsProfileCompletion';
   static const _requires2FA = 'requires2FA';
+  static const _fcmToken = 'fcmToken';
 
   static Future<void> saveSession({
     required String accessToken,
@@ -72,5 +73,15 @@ class StorageService {
   static Future<bool> getRequires2FA() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_requires2FA) ?? false;
+  }
+
+  static Future<void> setFcmToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fcmToken, token);
+  }
+
+  static Future<String?> getFcmToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_fcmToken);
   }
 }

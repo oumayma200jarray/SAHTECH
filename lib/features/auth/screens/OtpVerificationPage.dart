@@ -111,7 +111,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 enabledBorderColor: const Color(0xFFE2E8F0),
                 showFieldAsBox: true,
                 borderRadius: BorderRadius.circular(10),
-                fieldWidth: 45,
+                fieldWidth: 40, // Éviter l'overflow sur les petits écrans (ex: 312px)
                 filled: true,
                 fillColor: const Color(0xFFF7F9FC),
                 onCodeChanged: (code) {
@@ -173,8 +173,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                     ),
 
               const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap( // Changé de Row à Wrap pour éviter l'overflow
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     'no_code_received'.tr(),

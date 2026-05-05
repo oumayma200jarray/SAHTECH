@@ -36,4 +36,8 @@ class ProfileService {
   static Future<Map<String, dynamic>> updateOtp() async {
     return await EndPoint.client.patch(EndPoint.updateOtp);
   }
+
+  static Future<void> updatePushToken(String token) async {
+    await EndPoint.client.patch(EndPoint.updateUser, body: {'fcmToken': token});
+  }
 }

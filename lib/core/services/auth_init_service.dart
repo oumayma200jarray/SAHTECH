@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/features/auth/services/auth_service.dart';
 import 'package:sahtek/core/api/endpoint.dart';
+import 'package:sahtek/core/services/push_notification_service.dart';
 
 class AuthInitService {
   static Future<void> checkAndRestoreSession(BuildContext context) async {
@@ -9,7 +10,10 @@ class AuthInitService {
     final refreshToken = await StorageService.getRefreshToken();
 
     // no tokens at all → go to login
-    if (accessToken == null || refreshToken == null) {
+    if (accessToken == null ||
+        accessToken.isEmpty ||
+        refreshToken == null ||
+        refreshToken.isEmpty) {
       if (!context.mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -28,16 +32,17 @@ class AuthInitService {
 
       // token is still valid → go to home or dashboard based on role
       final role = await StorageService.getRole();
-      final targetRoute = (role != null && (role.toUpperCase() == 'SPECIALIST' || role.toUpperCase() == 'SPECIALISTE')) 
-          ? '/dashboard_specialiste' 
+      final targetRoute =
+          (role != null &&
+              (role.toUpperCase() == 'SPECIALIST' ||
+                  role.toUpperCase() == 'SPECIALISTE'))
+          ? '/dashboard_specialiste'
           : '/accueil';
 
+      await PushNotificationService.syncStoredTokenToBackend();
+
       if (!context.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        targetRoute,
-        (route) => false,
-      );
+      Navigator.pushNamedAndRemoveUntil(context, targetRoute, (route) => false);
     } catch (e) {
       // access token expired → try refresh token
       try {
@@ -56,10 +61,13 @@ class AuthInitService {
 
         // set new token in HttpClient
         EndPoint.client.setAuthToken(response['accessToken']);
+        await PushNotificationService.syncStoredTokenToBackend();
 
         final role = (await StorageService.getRole()) ?? '';
-        final targetRoute = (role.toUpperCase() == 'SPECIALIST' || role.toUpperCase() == 'SPECIALISTE') 
-            ? '/dashboard_specialiste' 
+        final targetRoute =
+            (role.toUpperCase() == 'SPECIALIST' ||
+                role.toUpperCase() == 'SPECIALISTE')
+            ? '/dashboard_specialiste'
             : '/accueil';
 
         if (!context.mounted) return;

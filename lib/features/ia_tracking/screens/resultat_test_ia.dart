@@ -67,9 +67,10 @@ class ResultatsTestIAPage extends StatelessWidget {
                   ROMAnalysisCard(
                     title: "ROM : ABDUCTION",
                     subtitle: "Calcul Vectoriel",
-                    value: "172.5°",
+                    value: lastResult.currentValue > 170 ? "OPTIMALE" : "${lastResult.currentValue.toStringAsFixed(1)}°",
                     label: "AMPLITUDE",
-                    progress: 0.85,
+                    progress: (lastResult.currentValue / lastResult.objective)
+                        .clamp(0.0, 1.0),
                     imagePath: lastResult.sessionFrames.length > 1
                         ? lastResult.sessionFrames[lastResult
                                   .sessionFrames
@@ -94,7 +95,9 @@ class ResultatsTestIAPage extends StatelessWidget {
                     icon: Icons.trending_up,
                     iconColor: const Color(0xFF0D54F2),
                     footerLabel: "Axe Y: Angle (°)",
-                    footerValue: "+45.2° progression",
+                    footerValue: lastResult.angleHistory.length > 1 
+                        ? "+${(lastResult.angleHistory.last - lastResult.angleHistory.first).toStringAsFixed(1)}° progression"
+                        : "Session initiale",
                     footerValueColor: const Color(0xFF0D54F2),
                     child: CustomPaint(
                       size: Size.infinite,
@@ -144,8 +147,8 @@ class ResultatsTestIAPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   ExerciseStatusTimeline(
-                    validatedReps: 8, // Placeholder pour démo
-                    totalReps: 12, // Placeholder pour démo
+                    validatedReps: lastResult.repetitionCount,
+                    totalReps: lastResult.totalRepsPlanned,
                   ),
                   const SizedBox(height: 32),
                   _buildSectionTitle(
@@ -154,7 +157,9 @@ class ResultatsTestIAPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   AIDiagnosticFeedback(
-                    elbowFlexion: lastResult.elbowFlexion,
+                    elbowFlexion: lastResult.minElbowFlexion,
+                    shoulderImbalance: lastResult.avgShoulderImbalance,
+                    aiSummary: lastResult.aiSummary,
                     onGeneratePDF: () =>
                         _reportService.generateAndOpenReport(lastResult),
                   ),
@@ -263,7 +268,7 @@ class ResultatsTestIAPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "INDICE DE PRÉCISION",
+                        "QUALITÉ D'EXÉCUTION",
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 10,
@@ -393,12 +398,15 @@ class ResultatsTestIAPage extends StatelessWidget {
       children: [
         Icon(icon, color: const Color(0xFF0D54F2), size: 18),
         const SizedBox(width: 12),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E293B),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
+            ),
+            overflow: TextOverflow.visible,
           ),
         ),
       ],

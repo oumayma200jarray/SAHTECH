@@ -287,6 +287,7 @@ class ChatServiceSocket {
   void disconnect() {
     _socket.disconnect();
     _isConnected = false;
+    _listenersAttached = false;
   }
 }
 

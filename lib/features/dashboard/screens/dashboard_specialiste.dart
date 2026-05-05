@@ -5,6 +5,7 @@ import 'package:sahtek/features/dashboard/services/dashboard_services.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/core/widgets/planning_card.dart';
 import 'package:sahtek/core/widgets/specialist_bottom_nav_bar.dart';
+import 'package:sahtek/core/widgets/role_gate.dart';
 import 'package:sahtek/models/content_model.dart';
 import 'package:sahtek/features/dashboard/screens/nouvelle_publication.dart';
 
@@ -12,7 +13,8 @@ class DashboardSpecialistePage extends StatefulWidget {
   const DashboardSpecialistePage({Key? key}) : super(key: key);
 
   @override
-  State<DashboardSpecialistePage> createState() => _DashboardSpecialistePageState();
+  State<DashboardSpecialistePage> createState() =>
+      _DashboardSpecialistePageState();
 }
 
 class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
@@ -20,186 +22,198 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      bottomNavigationBar: const SpecialistBottomNavBar(currentIndex: 0),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            // Logique de rafraîchissement si nécessaire
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: FutureBuilder<SpecialistStats>(
-              future: SpecialistDashboardService.getStats(),
-              initialData: SpecialistStats.zero(),
-              builder: (context, snapshot) {
-                final stats = snapshot.data ?? SpecialistStats.zero();
-                final isLoading =
-                    snapshot.connectionState == ConnectionState.waiting;
+    return RoleGate(
+      allowedRoles: ['SPECIALIST', 'SPECIALISTE', 'DOCTOR'],
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        bottomNavigationBar: const SpecialistBottomNavBar(currentIndex: 0),
+        body: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              // Logique de rafraîchissement si nécessaire
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: FutureBuilder<SpecialistStats>(
+                future: SpecialistDashboardService.getStats(),
+                initialData: SpecialistStats.zero(),
+                builder: (context, snapshot) {
+                  final stats = snapshot.data ?? SpecialistStats.zero();
+                  final isLoading =
+                      snapshot.connectionState == ConnectionState.waiting;
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildModeToggle(context),
-                    const SizedBox(height: 24),
-                    _buildHeader(stats.doctorName),
-                    const SizedBox(height: 32),
-                    
-                    _buildNewPublicationButton(context),
-                    const SizedBox(height: 32),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildModeToggle(context),
+                      const SizedBox(height: 24),
+                      _buildHeader(stats.doctorName),
+                      const SizedBox(height: 32),
 
-                    // Section Statistiques
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSmallStatCard(
-                            'total_patients_label'.tr(),
-                            '${stats.totalPatients}',
-                            '${stats.patientGrowthPercent > 0 ? "+" : ""}${stats.patientGrowthPercent}%',
-                            stats.patientGrowthPercent >= 0
-                                ? Colors.green
-                                : Colors.red,
-                            isLoading: isLoading,
+                      _buildNewPublicationButton(context),
+                      const SizedBox(height: 32),
+
+                      // Section Statistiques
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildSmallStatCard(
+                              'total_patients_label'.tr(),
+                              '${stats.totalPatients}',
+                              '${stats.patientGrowthPercent > 0 ? "+" : ""}${stats.patientGrowthPercent}%',
+                              stats.patientGrowthPercent >= 0
+                                  ? Colors.green
+                                  : Colors.red,
+                              isLoading: isLoading,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildSmallStatCard(
-                            'adherence_label'.tr(),
-                            '${stats.adherencePercent}%',
-                            '${stats.adherenceGrowthPercent > 0 ? "+" : ""}${stats.adherenceGrowthPercent}%',
-                            stats.adherenceGrowthPercent >= 0
-                                ? Colors.green
-                                : Colors.red,
-                            isLoading: isLoading,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildSmallStatCard(
+                              'adherence_label'.tr(),
+                              '${stats.adherencePercent}%',
+                              '${stats.adherenceGrowthPercent > 0 ? "+" : ""}${stats.adherenceGrowthPercent}%',
+                              stats.adherenceGrowthPercent >= 0
+                                  ? Colors.green
+                                  : Colors.red,
+                              isLoading: isLoading,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildSmallStatCard(
-                            'alerts_label'.tr(),
-                            '${stats.activeAlerts}',
-                            '${stats.alertsGrowthPercent > 0 ? "+" : ""}${stats.alertsGrowthPercent}%',
-                            stats.alertsGrowthPercent >= 0
-                                ? Colors.green
-                                : Colors.orange,
-                            isAlert: true,
-                            isLoading: isLoading,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildSmallStatCard(
+                              'alerts_label'.tr(),
+                              '${stats.activeAlerts}',
+                              '${stats.alertsGrowthPercent > 0 ? "+" : ""}${stats.alertsGrowthPercent}%',
+                              stats.alertsGrowthPercent >= 0
+                                  ? Colors.green
+                                  : Colors.orange,
+                              isAlert: true,
+                              isLoading: isLoading,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
 
-                    // Card Gestion du planning
-                    const PlanningCard(),
+                      // Card Gestion du planning
+                      const PlanningCard(),
 
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 32),
 
-                    // Section Rendez-vous du jour
-                    _buildSectionHeader(
-                      'todays_appointments'.tr(),
-                      onViewAll: () {},
-                    ),
-                    const SizedBox(height: 16),
-                    FutureBuilder<List<SpecialistAppointment>>(
-                      future:
-                          SpecialistDashboardService.getTodaysAppointments(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(20.0),
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                      // Section Rendez-vous du jour
+                      _buildSectionHeader(
+                        'todays_appointments'.tr(),
+                        onViewAll: () {},
+                      ),
+                      const SizedBox(height: 16),
+                      FutureBuilder<List<SpecialistAppointment>>(
+                        future:
+                            SpecialistDashboardService.getTodaysAppointments(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(20.0),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return _buildEmptyState(
+                              "no_appointments_today".tr(),
+                            );
+                          }
+                          return Column(
+                            children: snapshot.data!
+                                .map((app) => _buildAppointmentCard(app))
+                                .toList(),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Section Documents Récents
+                      _buildSectionHeader(
+                        'recent_documents'.tr(),
+                        onViewAll: () {},
+                      ),
+                      const SizedBox(height: 16),
+                      FutureBuilder<List<ContentModel>>(
+                        future: SpecialistDashboardService.getRecentDocuments(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(20.0),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return _buildEmptyState("no_recent_documents".tr());
+                          }
+                          return SizedBox(
+                            height: 140, // Reduced height for simple doc cards
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: snapshot.data!.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 16),
+                              itemBuilder: (context, index) {
+                                final doc = snapshot.data![index];
+                                return _buildDocumentCard(doc);
+                              },
                             ),
                           );
-                        }
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return _buildEmptyState("no_appointments_today".tr());
-                        }
-                        return Column(
-                          children: snapshot.data!
-                              .map((app) => _buildAppointmentCard(app))
-                              .toList(),
-                        );
-                      },
-                    ),
+                        },
+                      ),
 
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 32),
 
-                    // Section Documents Récents
-                    _buildSectionHeader(
-                      'recent_documents'.tr(),
-                      onViewAll: () {},
-                    ),
-                    const SizedBox(height: 16),
-                    FutureBuilder<List<ContentModel>>(
-                      future: SpecialistDashboardService.getRecentDocuments(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(20.0),
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
+                      // Section Patients Récents
+                      _buildSectionHeader(
+                        'recent_patients'.tr(),
+                        actionLabel: 'sort_by_rom'.tr(),
+                        onViewAll: () {},
+                      ),
+                      const SizedBox(height: 16),
+                      FutureBuilder<List<PatientFollowUp>>(
+                        future: SpecialistDashboardService.getRecentPatients(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(20.0),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return _buildEmptyState("no_recent_patients".tr());
+                          }
+                          return Column(
+                            children: snapshot.data!
+                                .map((p) => _buildPatientFollowUpCard(p))
+                                .toList(),
                           );
-                        }
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return _buildEmptyState("no_recent_documents".tr());
-                        }
-                        return SizedBox(
-                          height: 140, // Reduced height for simple doc cards
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: snapshot.data!.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: 16),
-                            itemBuilder: (context, index) {
-                              final doc = snapshot.data![index];
-                              return _buildDocumentCard(doc);
-                            },
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Section Patients Récents
-                    _buildSectionHeader(
-                      'recent_patients'.tr(),
-                      actionLabel: 'sort_by_rom'.tr(),
-                      onViewAll: () {},
-                    ),
-                    const SizedBox(height: 16),
-                    FutureBuilder<List<PatientFollowUp>>(
-                      future: SpecialistDashboardService.getRecentPatients(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(20.0),
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          );
-                        }
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return _buildEmptyState("no_recent_patients".tr());
-                        }
-                        return Column(
-                          children: snapshot.data!
-                              .map((p) => _buildPatientFollowUpCard(p))
-                              .toList(),
-                        );
-                      },
-                    ),
-                  ],
-                );
-              },
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -275,8 +289,14 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             minWidth: (MediaQuery.of(context).size.width - 50) / 2,
           ),
           children: [
-            Text('mode_specialist'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            Text('mode_patient'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            Text(
+              'mode_specialist'.tr(),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            Text(
+              'mode_patient'.tr(),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
           ],
         ),
       ),
@@ -288,7 +308,9 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
       onTap: () async {
         final result = await Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const NouvellePublicationPage()),
+          MaterialPageRoute(
+            builder: (context) => const NouvellePublicationPage(),
+          ),
         );
         // If a new publication was added, we can refresh the state
         if (result == true) {
@@ -325,7 +347,11 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
                     color: Colors.white.withOpacity(0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add_to_photos, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.add_to_photos,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Column(
@@ -687,10 +713,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             doc.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 4),
           Text(

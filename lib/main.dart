@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sahtek/core/config/app_config.dart';
 import 'package:sahtek/core/services/auth_init_service.dart';
 import 'package:sahtek/core/services/chat_realtime_service.dart';
+import 'package:sahtek/core/services/push_notification_service.dart';
 import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:sahtek/features/auth/controllers/auth_controller.dart';
@@ -43,11 +44,27 @@ import 'package:sahtek/features/specialists/screens/ListPatients.dart';
 import 'package:sahtek/features/specialists/screens/publier_exercice.dart';
 import 'package:sahtek/features/specialists/screens/specialist_medical_folder_page.dart';
 import 'package:sahtek/features/specialists/screens/medical_category_detail_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppConfig.initialize();
   await EasyLocalization.ensureInitialized();
+
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      debugPrint('Firebase initialization skipped or failed: $e');
+    }
+  }
+
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
+  await PushNotificationService.initialize();
   await ChatRealtimeService.instance.start();
 
   initializeDateFormatting('fr_FR', null).then((_) {
@@ -156,10 +173,12 @@ class _PpageState extends State<Ppage> {
   Future<void> _checkSession() async {
     final accessToken = await StorageService.getAccessToken();
 
-    if (accessToken != null) {
+    // treat null or empty tokens as missing
+    if (accessToken != null && accessToken.isNotEmpty) {
       // user has tokens → restore session silently
       if (!mounted) return;
       await AuthInitService.checkAndRestoreSession(context);
+      await PushNotificationService.syncStoredTokenToBackend();
     } else {
       // no tokens → show login/signup buttons
       if (mounted) setState(() => _sessionChecked = true);

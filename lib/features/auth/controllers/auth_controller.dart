@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sahtek/core/api/endpoint.dart';
 import 'package:sahtek/core/api/http_client.dart';
 import 'package:sahtek/core/services/storage_service.dart';
+import 'package:sahtek/core/services/push_notification_service.dart';
 import 'package:sahtek/features/auth/services/auth_service.dart';
 
 class AuthController extends ChangeNotifier {
@@ -43,6 +44,7 @@ class AuthController extends ChangeNotifier {
         );
 
         EndPoint.client.setAuthToken(response['accessToken']);
+        await PushNotificationService.syncStoredTokenToBackend();
 
         final savedRole = response['role']?.toString().toUpperCase() ?? '';
         final targetRoute =
