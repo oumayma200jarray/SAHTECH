@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
@@ -17,12 +18,17 @@ class StorageService {
     required String role,
     String? imageUrl,
   }) async {
+    debugPrint('💾 StorageService.saveSession: saving role = "$role"');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_accessToken, accessToken);
     await prefs.setString(_refreshToken, refreshToken);
     await prefs.setString(_userId, userId);
     await prefs.setString(_role, role);
     if (imageUrl != null) await prefs.setString(_imageUrl, imageUrl);
+    final saved = await prefs.getString(_role);
+    debugPrint(
+      '💾 StorageService.saveSession: verified stored role = "$saved"',
+    );
   }
 
   static Future<String?> getAccessToken() async {

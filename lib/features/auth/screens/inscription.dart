@@ -31,8 +31,12 @@ class _InscriptionState extends State<Inscription> {
 
   // patient fields
   final TextEditingController ageController = TextEditingController();
-  final TextEditingController poidsController = TextEditingController(text: '70');
-  final TextEditingController tailleController = TextEditingController(text: '175');
+  final TextEditingController poidsController = TextEditingController(
+    text: '70',
+  );
+  final TextEditingController tailleController = TextEditingController(
+    text: '175',
+  );
 
   // doctor fields
   final TextEditingController specialityController = TextEditingController();
@@ -85,7 +89,7 @@ class _InscriptionState extends State<Inscription> {
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 leading: IconButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/'),
                   icon: const Icon(Icons.arrow_back_ios_rounded),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -146,7 +150,6 @@ class _InscriptionState extends State<Inscription> {
                         key: _formKey,
                         child: Column(
                           children: [
-
                             // ─── Role selector ──────────────────────────
                             Align(
                               alignment: Alignment.centerLeft,
@@ -166,18 +169,15 @@ class _InscriptionState extends State<Inscription> {
                                     signupController.selectedRole == role;
                                 return Expanded(
                                   child: GestureDetector(
-                                    onTap: () =>
-                                        signupController.setRole(role),
+                                    onTap: () => signupController.setRole(role),
                                     child: Container(
                                       margin: const EdgeInsets.only(right: 8),
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 10),
+                                        vertical: 10,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? blue
-                                            : Colors.white,
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        color: isSelected ? blue : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
                                         border: Border.all(color: blue),
                                       ),
                                       child: Text(
@@ -212,8 +212,9 @@ class _InscriptionState extends State<Inscription> {
                             ),
                             const SizedBox(height: 8),
                             Row(
-                              children: ['MALE', 'FEMALE', 'OTHER']
-                                  .map((gender) {
+                              children: ['MALE', 'FEMALE', 'OTHER'].map((
+                                gender,
+                              ) {
                                 final isSelected =
                                     signupController.selectedGender == gender;
                                 return Expanded(
@@ -223,13 +224,11 @@ class _InscriptionState extends State<Inscription> {
                                     child: Container(
                                       margin: const EdgeInsets.only(right: 4),
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 10),
+                                        vertical: 10,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? blue
-                                            : Colors.white,
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        color: isSelected ? blue : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
                                         border: Border.all(color: blue),
                                       ),
                                       child: Text(
@@ -258,9 +257,12 @@ class _InscriptionState extends State<Inscription> {
                               validator: (v) => (v == null || v.isEmpty)
                                   ? 'fullname_required'.tr()
                                   : null,
-                              decoration: Deco(null, null,
-                                  const Icon(Icons.person_outline, color: blue),
-                                  hintText: 'fullname_hint'.tr()),
+                              decoration: Deco(
+                                null,
+                                null,
+                                const Icon(Icons.person_outline, color: blue),
+                                hintText: 'fullname_hint'.tr(),
+                              ),
                             ),
                             const SizedBox(height: 10),
 
@@ -279,9 +281,12 @@ class _InscriptionState extends State<Inscription> {
                                   return 'email_invalid'.tr();
                                 return null;
                               },
-                              decoration: Deco(null, null,
-                                  const Icon(Icons.email_outlined, color: blue),
-                                  hintText: 'exemple@mail.com'),
+                              decoration: Deco(
+                                null,
+                                null,
+                                const Icon(Icons.email_outlined, color: blue),
+                                hintText: 'exemple@mail.com',
+                              ),
                             ),
                             const SizedBox(height: 10),
 
@@ -298,9 +303,12 @@ class _InscriptionState extends State<Inscription> {
                                   return 'phone_invalid'.tr();
                                 return null;
                               },
-                              decoration: Deco(null, null,
-                                  const Icon(Icons.phone_outlined, color: blue),
-                                  hintText: 'phone_hint'.tr()),
+                              decoration: Deco(
+                                null,
+                                null,
+                                const Icon(Icons.phone_outlined, color: blue),
+                                hintText: 'phone_hint'.tr(),
+                              ),
                             ),
                             const SizedBox(height: 10),
 
@@ -312,10 +320,15 @@ class _InscriptionState extends State<Inscription> {
                               validator: (v) => (v == null || v.isEmpty)
                                   ? 'address_required'.tr()
                                   : null,
-                              decoration: Deco(null, null,
-                                  const Icon(Icons.location_on_outlined,
-                                      color: blue),
-                                  hintText: 'address_hint'.tr()),
+                              decoration: Deco(
+                                null,
+                                null,
+                                const Icon(
+                                  Icons.location_on_outlined,
+                                  color: blue,
+                                ),
+                                hintText: 'address_hint'.tr(),
+                              ),
                             ),
                             const SizedBox(height: 10),
 
@@ -328,8 +341,7 @@ class _InscriptionState extends State<Inscription> {
                               validator: (v) {
                                 if (v == null || v.isEmpty)
                                   return 'password_required'.tr();
-                                if (v.length < 6)
-                                  return 'password_length'.tr();
+                                if (v.length < 6) return 'password_length'.tr();
                                 return null;
                               },
                               decoration: Deco(
@@ -359,9 +371,12 @@ class _InscriptionState extends State<Inscription> {
                                 validator: (v) => (v == null || v.isEmpty)
                                     ? 'age_required'.tr()
                                     : null,
-                                decoration: Deco(null, null,
-                                    const Icon(Icons.cake_outlined, color: blue),
-                                    hintText: '25'),
+                                decoration: Deco(
+                                  null,
+                                  null,
+                                  const Icon(Icons.cake_outlined, color: blue),
+                                  hintText: '25',
+                                ),
                               ),
                               const SizedBox(height: 10),
                               Row(
@@ -383,11 +398,15 @@ class _InscriptionState extends State<Inscription> {
                                               return 'weight_invalid'.tr();
                                             return null;
                                           },
-                                          decoration: Deco(null, null,
-                                              const Icon(
-                                                  Icons.fitness_center_outlined,
-                                                  color: blue),
-                                              hintText: '70'),
+                                          decoration: Deco(
+                                            null,
+                                            null,
+                                            const Icon(
+                                              Icons.fitness_center_outlined,
+                                              color: blue,
+                                            ),
+                                            hintText: '70',
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -410,10 +429,15 @@ class _InscriptionState extends State<Inscription> {
                                               return 'height_invalid'.tr();
                                             return null;
                                           },
-                                          decoration: Deco(null, null,
-                                              const Icon(Icons.height,
-                                                  color: blue),
-                                              hintText: '175'),
+                                          decoration: Deco(
+                                            null,
+                                            null,
+                                            const Icon(
+                                              Icons.height,
+                                              color: blue,
+                                            ),
+                                            hintText: '175',
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -431,10 +455,15 @@ class _InscriptionState extends State<Inscription> {
                                 validator: (v) => (v == null || v.isEmpty)
                                     ? 'speciality_required'.tr()
                                     : null,
-                                decoration: Deco(null, null,
-                                    const Icon(Icons.medical_services_outlined,
-                                        color: blue),
-                                    hintText: 'Cardiology'),
+                                decoration: Deco(
+                                  null,
+                                  null,
+                                  const Icon(
+                                    Icons.medical_services_outlined,
+                                    color: blue,
+                                  ),
+                                  hintText: 'Cardiology',
+                                ),
                               ),
                               const SizedBox(height: 10),
                               _buildLabel('bio_label'.tr()),
@@ -445,8 +474,12 @@ class _InscriptionState extends State<Inscription> {
                                 validator: (v) => (v == null || v.isEmpty)
                                     ? 'bio_required'.tr()
                                     : null,
-                                decoration: Deco(null, null, null,
-                                    hintText: 'bio_hint'.tr()),
+                                decoration: Deco(
+                                  null,
+                                  null,
+                                  null,
+                                  hintText: 'bio_hint'.tr(),
+                                ),
                               ),
                               const SizedBox(height: 10),
                               _buildLabel('license_label'.tr()),
@@ -460,29 +493,42 @@ class _InscriptionState extends State<Inscription> {
                                     return 'license_invalid'.tr();
                                   return null;
                                 },
-                                decoration: Deco(null, null,
-                                    const Icon(Icons.badge_outlined, color: blue),
-                                    hintText: '1234/95'),
+                                decoration: Deco(
+                                  null,
+                                  null,
+                                  const Icon(Icons.badge_outlined, color: blue),
+                                  hintText: '1234/95',
+                                ),
                               ),
                               const SizedBox(height: 10),
                               _buildLabel('clinic_label'.tr()),
                               const SizedBox(height: 8),
                               TextFormField(
                                 controller: clinicController,
-                                decoration: Deco(null, null,
-                                    const Icon(Icons.local_hospital_outlined,
-                                        color: blue),
-                                    hintText: 'clinic_hint'.tr()),
+                                decoration: Deco(
+                                  null,
+                                  null,
+                                  const Icon(
+                                    Icons.local_hospital_outlined,
+                                    color: blue,
+                                  ),
+                                  hintText: 'clinic_hint'.tr(),
+                                ),
                               ),
                               const SizedBox(height: 10),
                               _buildLabel('location_label'.tr()),
                               const SizedBox(height: 8),
                               TextFormField(
                                 controller: locationController,
-                                decoration: Deco(null, null,
-                                    const Icon(Icons.location_on_outlined,
-                                        color: blue),
-                                    hintText: 'location_hint'.tr()),
+                                decoration: Deco(
+                                  null,
+                                  null,
+                                  const Icon(
+                                    Icons.location_on_outlined,
+                                    color: blue,
+                                  ),
+                                  hintText: 'location_hint'.tr(),
+                                ),
                               ),
                               const SizedBox(height: 10),
                               Row(
@@ -497,8 +543,12 @@ class _InscriptionState extends State<Inscription> {
                                         TextFormField(
                                           controller: latitudeController,
                                           keyboardType: TextInputType.number,
-                                          decoration: Deco(null, null, null,
-                                              hintText: '36.8065'),
+                                          decoration: Deco(
+                                            null,
+                                            null,
+                                            null,
+                                            hintText: '36.8065',
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -514,8 +564,12 @@ class _InscriptionState extends State<Inscription> {
                                         TextFormField(
                                           controller: longitudeController,
                                           keyboardType: TextInputType.number,
-                                          decoration: Deco(null, null, null,
-                                              hintText: '10.1815'),
+                                          decoration: Deco(
+                                            null,
+                                            null,
+                                            null,
+                                            hintText: '10.1815',
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -552,20 +606,21 @@ class _InscriptionState extends State<Inscription> {
                                   address: addressController.text.trim(),
                                   context: context,
                                   // patient
-                                  age: signupController.selectedRole == 'PATIENT'
+                                  age:
+                                      signupController.selectedRole == 'PATIENT'
                                       ? ageController.text.trim()
                                       : null,
-                                  weight: signupController.selectedRole ==
-                                          'PATIENT'
+                                  weight:
+                                      signupController.selectedRole == 'PATIENT'
                                       ? double.tryParse(poidsController.text)
                                       : null,
-                                  height: signupController.selectedRole ==
-                                          'PATIENT'
+                                  height:
+                                      signupController.selectedRole == 'PATIENT'
                                       ? double.tryParse(tailleController.text)
                                       : null,
                                   // doctor
-                                  speciality: signupController.selectedRole ==
-                                          'DOCTOR'
+                                  speciality:
+                                      signupController.selectedRole == 'DOCTOR'
                                       ? specialityController.text.trim()
                                       : null,
                                   bio: signupController.selectedRole == 'DOCTOR'
@@ -573,26 +628,26 @@ class _InscriptionState extends State<Inscription> {
                                       : null,
                                   licenseNumber:
                                       signupController.selectedRole == 'DOCTOR'
-                                          ? licenseController.text.trim()
-                                          : null,
+                                      ? licenseController.text.trim()
+                                      : null,
                                   clinic:
                                       signupController.selectedRole == 'DOCTOR'
-                                          ? clinicController.text.trim()
-                                          : null,
+                                      ? clinicController.text.trim()
+                                      : null,
                                   location:
                                       signupController.selectedRole == 'DOCTOR'
-                                          ? locationController.text.trim()
-                                          : null,
+                                      ? locationController.text.trim()
+                                      : null,
                                   latitude:
                                       signupController.selectedRole == 'DOCTOR'
-                                          ? double.tryParse(
-                                              latitudeController.text)
-                                          : null,
+                                      ? double.tryParse(latitudeController.text)
+                                      : null,
                                   longitude:
                                       signupController.selectedRole == 'DOCTOR'
-                                          ? double.tryParse(
-                                              longitudeController.text)
-                                          : null,
+                                      ? double.tryParse(
+                                          longitudeController.text,
+                                        )
+                                      : null,
                                 );
                               }
                             }),
