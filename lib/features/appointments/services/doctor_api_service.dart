@@ -1,5 +1,4 @@
 import 'package:sahtek/core/api/endpoint.dart';
-import 'package:sahtek/core/api/http_client.dart';
 
 class DoctorApiService {
   static Future<List<Map<String, dynamic>>> getDailySlots() async {
