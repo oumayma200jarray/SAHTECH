@@ -38,7 +38,7 @@ class OtpController extends ChangeNotifier {
 
       final savedRole = response['role']?.toString().toUpperCase() ?? '';
       final targetRoute =
-          (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE')
+          (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE' || savedRole == 'DOCTOR')
           ? '/dashboard_specialiste'
           : '/accueil';
 

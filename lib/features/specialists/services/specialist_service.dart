@@ -175,4 +175,49 @@ class SpecialistService {
       return nameMatch || emailMatch || phoneMatch;
     }).toList();
   }
+
+  /// Sauvegarde les créneaux de disponibilité du spécialiste sur le backend
+  static Future<bool> saveAvailabilitySlots(List<dynamic> slots) async {
+    try {
+      // Transformation des slots locaux en format attendu par le backend
+      // On génère des dates réelles à partir du dayOfWeek (prochaine occurrence)
+      final List<Map<String, dynamic>> backendSlots = [];
+      final now = DateTime.now();
+
+      for (final slot in slots) {
+        // Calcul de la date pour le prochain jour de la semaine correspondant
+        int daysToAdd = (slot.dayOfWeek - now.weekday + 7) % 7;
+        final targetDate = now.add(Duration(days: daysToAdd));
+
+        final startParts = slot.startTime.split(':');
+        final endParts = slot.endTime.split(':');
+
+        final startDateTime = DateTime(
+          targetDate.year, targetDate.month, targetDate.day,
+          int.parse(startParts[0]), int.parse(startParts[1]),
+        );
+
+        final endDateTime = DateTime(
+          targetDate.year, targetDate.month, targetDate.day,
+          int.parse(endParts[0]), int.parse(endParts[1]),
+        );
+
+        backendSlots.add({
+          'startTime': startDateTime.toIso8601String(),
+          'endTime': endDateTime.toIso8601String(),
+          'date': targetDate.toIso8601String(),
+          'type': slot.type.toString().split('.').last, // 'cabinet' ou 'video'
+        });
+      }
+
+      await EndPoint.client.post(
+        EndPoint.saveAvailability,
+        body: {'slots': backendSlots},
+      );
+      return true;
+    } catch (e) {
+      print('⚠️ saveAvailabilitySlots error: $e');
+      return false;
+    }
+  }
 }

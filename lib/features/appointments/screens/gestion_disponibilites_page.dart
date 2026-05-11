@@ -6,6 +6,7 @@ import 'package:sahtek/models/availability_model.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:sahtek/features/appointments/widgets/availability_calendar_grid.dart';
 import 'package:sahtek/features/appointments/widgets/availability_slot_card.dart';
+import 'package:sahtek/features/specialists/services/specialist_service.dart';
 
 class GestionDisponibilitesPage extends StatelessWidget {
   const GestionDisponibilitesPage({Key? key}) : super(key: key);
@@ -168,7 +169,22 @@ class GestionDisponibilitesPage extends StatelessWidget {
   Widget _buildSaveButton(BuildContext context) {
     return buttonC(
       'save_modifications'.tr(),
-      () => Navigator.pop(context),
+      () async {
+        final provider = Provider.of<GlobalDataProvider>(context, listen: false);
+        final success = await SpecialistService.saveAvailabilitySlots(provider.availabilitySlots);
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(success 
+                ? 'Disponibilités sauvegardées avec succès' 
+                : 'Erreur lors de la sauvegarde'),
+              backgroundColor: success ? Colors.green : Colors.red,
+            ),
+          );
+          if (success) Navigator.pop(context);
+        }
+      },
       icon: Icons.save,
     );
   }

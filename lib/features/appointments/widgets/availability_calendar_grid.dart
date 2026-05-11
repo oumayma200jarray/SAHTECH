@@ -43,13 +43,18 @@ class AvailabilityCalendarGrid extends StatelessWidget {
           constraints: const BoxConstraints(),
         ),
         const Spacer(),
-        Column(
-          children: [
-            Text(
-              'week_label'.tr(namedArgs: {'start': '14', 'end': '20'}),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
+        Flexible(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'week_label'.tr(namedArgs: {'start': '14', 'end': '20'}),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
         const Spacer(),
         IconButton(

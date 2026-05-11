@@ -41,7 +41,7 @@ class ChatService {
 
   static ChatConversation getMockConversation() {
     return ChatConversation(
-      doctorName: 'Médecin',
+      doctorName: 'Spécialiste',
       specialty: 'Spécialiste',
       doctorImageUrl: 'https://i.pravatar.cc/150?u=doc',
       messages: [],
@@ -68,26 +68,14 @@ class SpecialistDashboardService {
     return []; // Retourne une liste vide si erreur
   }
 
-  /// Récupère la liste des patients récemment suivis
+  /// Récupère la liste des patients récemment suivis via l'API backend.
   static Future<List<PatientFollowUp>> getRecentPatients() async {
-    // Dans une version réelle, ceci appellerait l'API
-    // Simulation pour le prototype
-    return [
-      PatientFollowUp(
-        name: 'Jean Dupont',
-        zone: 'Épaule (Flexion)',
-        romProgress: 85,
-        growth: 12.5,
-        imageUrl: 'https://i.pravatar.cc/150?u=jean',
-      ),
-      PatientFollowUp(
-        name: 'Marie Curie',
-        zone: 'Genou',
-        romProgress: 65,
-        growth: -5.0,
-        imageUrl: 'https://i.pravatar.cc/150?u=marie',
-      ),
-    ];
+    try {
+      // Appel au nouvel endpoint implémenté dans le backend
+      final List<dynamic> data = await EndPoint.client.get('/specialist/patients/recent');
+      return data.map((item) => PatientFollowUp.fromJson(item)).toList();
+    } catch (_) {}
+    return []; // Retourne une liste vide en cas d'erreur de connexion
   }
 
   // --- NOUVELLES FONCTIONNALITÉS ---

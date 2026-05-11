@@ -35,7 +35,8 @@ class AuthInitService {
       final targetRoute =
           (role != null &&
               (role.toUpperCase() == 'SPECIALIST' ||
-                  role.toUpperCase() == 'SPECIALISTE'))
+                  role.toUpperCase() == 'SPECIALISTE' ||
+                  role.toUpperCase() == 'DOCTOR'))
           ? '/dashboard_specialiste'
           : '/accueil';
 
@@ -66,7 +67,8 @@ class AuthInitService {
         final role = (await StorageService.getRole()) ?? '';
         final targetRoute =
             (role.toUpperCase() == 'SPECIALIST' ||
-                role.toUpperCase() == 'SPECIALISTE')
+                role.toUpperCase() == 'SPECIALISTE' ||
+                role.toUpperCase() == 'DOCTOR')
             ? '/dashboard_specialiste'
             : '/accueil';
 

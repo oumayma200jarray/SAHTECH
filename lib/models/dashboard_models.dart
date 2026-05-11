@@ -107,7 +107,7 @@ class ChatConversation {
     List<ChatMessage> msgs = list.map((i) => ChatMessage.fromJson(i)).toList();
 
     return ChatConversation(
-      doctorName: json['doctorName'] ?? 'Médecin',
+      doctorName: json['doctorName'] ?? 'Spécialiste',
       specialty: json['specialty'] ?? 'Spécialiste',
       doctorImageUrl:
           json['doctorImageUrl'] ?? 'https://i.pravatar.cc/150?u=doc',

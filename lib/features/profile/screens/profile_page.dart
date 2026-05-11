@@ -42,7 +42,20 @@ class _ProfilePageState extends State<ProfilePage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.blue, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              // Si on ne peut pas pop (ex: remplacement de route), on retourne à l'accueil selon le rôle
+              final isSpecialist = _role?.toUpperCase() == 'SPECIALIST' || 
+                                   _role?.toUpperCase() == 'SPECIALISTE' || 
+                                   _role?.toUpperCase() == 'DOCTOR';
+              Navigator.pushReplacementNamed(
+                context, 
+                isSpecialist ? '/dashboard_specialiste' : '/accueil'
+              );
+            }
+          },
         ),
         title: Text(
           'profile'.tr(),

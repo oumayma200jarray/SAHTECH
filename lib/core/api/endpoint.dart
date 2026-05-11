@@ -46,6 +46,7 @@ class EndPoint {
   static String specialistById(String id) =>
       'users/specialist/${Uri.encodeComponent(id)}';
   static const String myPatients = 'specialist/patients';
+  static const String saveAvailability = 'specialist/availability';
 
   // ─── Appointments ────────────────────────────────────────────────────────
   // Keep backend naming as-is (`apointment`) to match server route.

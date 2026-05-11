@@ -10,7 +10,7 @@ class AppConfig {
   static Future<void> initialize() async {
     await dotenv.load();
     host = dotenv.env['HOST'] ?? '10.0.2.2';
-    apiBaseUrl = 'http://$host:3000';
+    apiBaseUrl = 'http://$host:4000';
     minioBaseUrl = 'http://$host:9000';
   }
 }
