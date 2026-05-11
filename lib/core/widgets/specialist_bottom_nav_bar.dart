@@ -7,7 +7,7 @@ class SpecialistBottomNavBar extends StatelessWidget {
   final int currentIndex;
 
   const SpecialistBottomNavBar({Key? key, required this.currentIndex})
-      : super(key: key);
+    : super(key: key);
 
   void _onItemTapped(BuildContext context, int index) {
     if (index == currentIndex) return;
@@ -21,6 +21,9 @@ class SpecialistBottomNavBar extends StatelessWidget {
         break;
       case 2:
         Navigator.pushReplacementNamed(context, '/profile');
+        break;
+      case 3:
+        Navigator.pushReplacementNamed(context, '/gestion_disponibilites');
         break;
     }
   }
@@ -48,6 +51,11 @@ class SpecialistBottomNavBar extends StatelessWidget {
           icon: const Icon(Icons.person_outline),
           activeIcon: const Icon(Icons.person),
           label: 'nav_profile'.tr(),
+        ),
+        BottomNavigationBarItem(
+          icon: const Icon(Icons.schedule_outlined),
+          activeIcon: const Icon(Icons.schedule),
+          label: 'nav_availability'.tr(),
         ),
       ],
     );

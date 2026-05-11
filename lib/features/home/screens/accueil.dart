@@ -32,6 +32,22 @@ class _AccueilPageState extends State<AccueilPage> {
       _handleNewGoogleUserFlow();
     });
     _loadFavoritePostIds();
+    _loadRoleForModeToggle();
+  }
+
+  bool _showModeToggle = false;
+
+  Future<void> _loadRoleForModeToggle() async {
+    final role = await StorageService.getRole();
+    if (!mounted) return;
+    final normalized = role?.toUpperCase() ?? '';
+    if (normalized == 'SPECIALIST' ||
+        normalized == 'SPECIALISTE' ||
+        normalized == 'DOCTOR') {
+      setState(() {
+        _showModeToggle = true;
+      });
+    }
   }
 
   Future<void> _loadFavoritePostIds() async {
@@ -233,6 +249,59 @@ class _AccueilPageState extends State<AccueilPage> {
               children: [
                 // En-tête (Profil utilisateur)
                 _buildHeader(context),
+                if (_showModeToggle) ...[
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[200]!),
+                      ),
+                      child: ToggleButtons(
+                        isSelected: const [
+                          false,
+                          true,
+                        ], // [Specialist, Patient]
+                        onPressed: (int index) {
+                          if (index == 0) {
+                            Navigator.pushReplacementNamed(
+                              context,
+                              '/dashboard_specialiste',
+                            );
+                          }
+                          // index == 1 is patient (current page) -> no-op
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        selectedColor: Colors.white,
+                        fillColor: const Color(0xFF0D54F2),
+                        color: Colors.grey[600],
+                        constraints: BoxConstraints(
+                          minHeight: 40,
+                          minWidth:
+                              (MediaQuery.of(context).size.width - 50) / 2,
+                        ),
+                        children: [
+                          Text(
+                            'mode_specialist'.tr(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            'mode_patient'.tr(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 const SizedBox(height: 32),
 
                 // Section "Programme d'exercices"

@@ -28,10 +28,14 @@ class _RoleGateState extends State<RoleGate> {
 
   Future<void> _loadRole() async {
     final r = (await StorageService.getRole()) ?? '';
+    debugPrint('🔓 RoleGate._loadRole: raw role from storage: "$r"');
     setState(() {
       _role = r.toUpperCase();
       _loading = false;
     });
+    debugPrint(
+      '🔓 RoleGate: normalized role: "${_role}", allowed: ${widget.allowedRoles}, is allowed: ${_allowed}',
+    );
   }
 
   bool get _allowed {

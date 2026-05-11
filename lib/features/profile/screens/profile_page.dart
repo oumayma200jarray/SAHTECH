@@ -116,17 +116,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    profile.fullName.isNotEmpty
-                        ? profile.fullName
-                        : 'doctor_placeholder'.tr(),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1C1E),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -137,7 +126,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      _role != null
+                      _role != null && _role!.isNotEmpty
                           ? _role!.toLowerCase().tr()
                           : 'patient'.tr(),
                       style: const TextStyle(

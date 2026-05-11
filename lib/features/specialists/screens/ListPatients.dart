@@ -63,24 +63,7 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: CircleAvatar(
-            backgroundColor: Colors.blue.withOpacity(0.08),
-            radius: 20,
-            child: IconButton(
-              icon: const Icon(
-                Icons.arrow_back,
-                color: Color(0xFF0D54F2),
-                size: 20,
-              ),
-              onPressed: () {
-                final role = context.read<ProfileController>().role;
-                NavigationUtils.navigateToDashboard(context, role);
-              },
-            ),
-          ),
-        ),
+        automaticallyImplyLeading: false,
         title: Text(
           'patient_list_title'.tr(),
           style: const TextStyle(

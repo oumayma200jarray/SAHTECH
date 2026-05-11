@@ -76,4 +76,49 @@ class EndPoint {
       'chat/conversations/$conversationId/messages';
   static const String chatUnreadCount = 'chat/unread';
   static const String chatWebSocketNamespace = '/chat';
+
+  // ─── Doctor Dashboard & Management ──────────────────────────────────────
+  static const String doctorGetForms = 'doctors/get-forms'; // Dashboard stats
+  static const String doctorGetPatients =
+      'doctors/get-patients'; // All patients
+  static String doctorPatientSessions(String patientId) =>
+      'doctors/patients/$patientId/sessions'; // Patient sessions
+  static String doctorSessionDetails(String sessionId) =>
+      'doctors/sessions/$sessionId'; // Session details
+  static String doctorCreateSession(String patientId) =>
+      'doctors/patients/$patientId/sessions'; // Create session (POST)
+
+  // ─── Medical Sessions - Clinical & Diagnostic ───────────────────────────
+  static String doctorSaveExamenClinique(String sessionId) =>
+      'doctors/sessions/$sessionId/examen-clinique'; // Clinical exam
+  static String doctorSaveComplementaryExam(String sessionId) =>
+      'doctors/sessions/$sessionId/examen-complementaire'; // Complementary exam
+  static String doctorDeleteComplementaryExam(String examId) =>
+      'doctors/examen-complementaire/$examId'; // Delete complementary exam
+  static String doctorSaveDiagnostic(String sessionId) =>
+      'doctors/sessions/$sessionId/diagnostic'; // Save diagnosis
+  static String doctorSaveConducteATenir(String sessionId) =>
+      'doctors/sessions/$sessionId/conduite-a-tenir'; // Treatment plan
+
+  // ─── Medical Sessions - Physiotherapy ───────────────────────────────────
+  static String doctorSavePhysioLevelBilan(String sessionId) =>
+      'doctors/sessions/$sessionId/physiotherapie/bilan'; // Physio assessment
+  static String doctorSavePhysioPresenceProtocole(String sessionId) =>
+      'doctors/sessions/$sessionId/physiotherapie/protocole'; // Physio protocol
+  static String doctorSavePhysioPresenceResultat(String sessionId) =>
+      'doctors/sessions/$sessionId/physiotherapie/resultat'; // Physio results
+
+  // ─── Doctor Planning & Availability ─────────────────────────────────────
+  static const String doctorDailySlots = 'doctors/daily-slots'; // Get slots
+  static String doctorUpdateSlot(String slotId) =>
+      'doctors/daily-slots/$slotId'; // Update/Delete slot
+  static const String doctorAppointments =
+      'doctors/appointments'; // Get appointments
+  static String doctorUpdateAppointment(String appointmentId) =>
+      'doctors/appointments/$appointmentId'; // Update appointment
+
+  // ─── Doctor Content / Posts ──────────────────────────────────────────────
+  static const String doctorMyPosts = 'doctors/my_posts'; // Get doctor's posts
+  static String doctorDeletePost(String postId) =>
+      'doctors/my_posts/$postId'; // Delete post
 }

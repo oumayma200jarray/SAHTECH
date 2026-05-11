@@ -6,6 +6,7 @@ import 'package:sahtek/core/services/push_notification_service.dart';
 
 class AuthInitService {
   static Future<void> checkAndRestoreSession(BuildContext context) async {
+    debugPrint('🔓 AuthInitService.checkAndRestoreSession: called');
     final accessToken = await StorageService.getAccessToken();
     final refreshToken = await StorageService.getRefreshToken();
 
@@ -14,6 +15,7 @@ class AuthInitService {
         accessToken.isEmpty ||
         refreshToken == null ||
         refreshToken.isEmpty) {
+      debugPrint('🔓 AuthInitService: no tokens, routing to /connexion');
       if (!context.mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -32,6 +34,9 @@ class AuthInitService {
 
       // token is still valid → go to home or dashboard based on role
       final role = await StorageService.getRole();
+      debugPrint(
+        '🔓 AuthInitService: token valid, role from storage = "$role"',
+      );
       final targetRoute =
           (role != null &&
               (role.toUpperCase() == 'SPECIALIST' ||
@@ -39,6 +44,7 @@ class AuthInitService {
                   role.toUpperCase() == 'DOCTOR'))
           ? '/dashboard_specialiste'
           : '/accueil';
+      debugPrint('🔓 AuthInitService: routing to $targetRoute');
 
       await PushNotificationService.syncStoredTokenToBackend();
 
@@ -46,7 +52,9 @@ class AuthInitService {
       Navigator.pushNamedAndRemoveUntil(context, targetRoute, (route) => false);
     } catch (e) {
       // access token expired → try refresh token
+      debugPrint('🔓 AuthInitService: token validation failed, error: $e');
       try {
+        debugPrint('🔓 AuthInitService: attempting token refresh...');
         final response = await AuthService.refreshToken(
           refreshToken: refreshToken,
         );
@@ -65,12 +73,16 @@ class AuthInitService {
         await PushNotificationService.syncStoredTokenToBackend();
 
         final role = (await StorageService.getRole()) ?? '';
+        debugPrint('🔓 AuthInitService: token refreshed, role = "$role"');
         final targetRoute =
             (role.toUpperCase() == 'SPECIALIST' ||
                 role.toUpperCase() == 'SPECIALISTE' ||
                 role.toUpperCase() == 'DOCTOR')
             ? '/dashboard_specialiste'
             : '/accueil';
+        debugPrint(
+          '🔓 AuthInitService: routing to $targetRoute (after refresh)',
+        );
 
         if (!context.mounted) return;
         Navigator.pushNamedAndRemoveUntil(
@@ -80,6 +92,9 @@ class AuthInitService {
         );
       } catch (e) {
         // refresh token also expired → clear storage and go to login
+        debugPrint(
+          '🔓 AuthInitService: token refresh failed, clearing session and going to /connexion. Error: $e',
+        );
         await StorageService.clearSession();
         EndPoint.client.clearAuthToken();
 

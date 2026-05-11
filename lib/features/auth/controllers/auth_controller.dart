@@ -47,17 +47,28 @@ class AuthController extends ChangeNotifier {
         await PushNotificationService.syncStoredTokenToBackend();
 
         final savedRole = response['role']?.toString().toUpperCase() ?? '';
+        debugPrint('🔐 AuthController.signIn: saved role = "$savedRole"');
         final targetRoute =
-            (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE' || savedRole == 'DOCTOR')
+            (savedRole == 'DOCTOR' ||
+                savedRole == 'SPECIALIST' ||
+                savedRole == 'SPECIALISTE')
             ? '/dashboard_specialiste'
             : '/accueil';
+        debugPrint('🔐 AuthController.signIn: targetRoute = "$targetRoute"');
 
-        if (!context.mounted) return;
+        if (!context.mounted) {
+          debugPrint('❌ context.mounted = false, cannot navigate');
+          return;
+        }
+        debugPrint(
+          '🚀 Calling Navigator.pushNamedAndRemoveUntil to route: $targetRoute',
+        );
         Navigator.pushNamedAndRemoveUntil(
           context,
           targetRoute,
           (route) => false,
         );
+        debugPrint('🚀 Navigator.pushNamedAndRemoveUntil completed');
       }
     } catch (e) {
       if (e is ApiException) {

@@ -51,7 +51,9 @@ class GoogleAuthController extends ChangeNotifier {
         final savedRole =
             response['role']?.toString().toUpperCase() ?? 'PATIENT';
         final targetRoute =
-            (savedRole == 'SPECIALIST' || savedRole == 'SPECIALISTE' || savedRole == 'DOCTOR')
+            (savedRole == 'SPECIALIST' ||
+                savedRole == 'SPECIALISTE' ||
+                savedRole == 'DOCTOR')
             ? '/dashboard_specialiste'
             : '/accueil';
 

@@ -38,6 +38,7 @@ import 'package:sahtek/features/notifications/screens/notifications_page.dart';
 import 'package:sahtek/features/ia_tracking/screens/suivi_ia_direct.dart';
 import 'package:sahtek/features/appointments/screens/gestion_disponibilites_page.dart';
 import 'package:sahtek/features/specialists/screens/specialiste_details.dart';
+import 'package:sahtek/core/widgets/role_guard.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/features/auth/controllers/signup_controller.dart';
 import 'package:sahtek/features/specialists/screens/ListPatients.dart';
@@ -124,7 +125,8 @@ class MyApp extends StatelessWidget {
         '/details_rdv': (context) => const DetailsRdvPage(),
         '/score_constant': (context) => const ScoreConstantPage(),
         '/messagerie': (context) => const MessageriePage(),
-        '/dashboard_specialiste': (context) => const DashboardSpecialistePage(),
+        '/dashboard_specialiste': (context) =>
+            RoleGuard(child: const DashboardSpecialistePage()),
         '/profile': (context) => const ProfilePage(),
         '/personal_info': (context) => const PersonalInfoPage(),
         '/medical_folder': (context) => const MedicalFolderPage(),
@@ -134,12 +136,14 @@ class MyApp extends StatelessWidget {
         '/notifications': (context) => const NotificationsPage(),
         '/suivi_ia_direct': (context) => const SuiviIADirectPage(),
         '/gestion_disponibilites': (context) =>
-            const GestionDisponibilitesPage(),
+            RoleGuard(child: const GestionDisponibilitesPage()),
         '/specialiste_details': (context) => const SpecialisteDetailsPage(),
-        '/liste_patients': (context) => const ListePatientsPage(),
-        '/publier_exercice': (context) => const PublierExercicePage(),
+        '/liste_patients': (context) =>
+            RoleGuard(child: const ListePatientsPage()),
+        '/publier_exercice': (context) =>
+            RoleGuard(child: const PublierExercicePage()),
         '/specialist_medical_folder': (context) =>
-            const SpecialistMedicalFolderPage(),
+            RoleGuard(child: const SpecialistMedicalFolderPage()),
         '/medical_category_detail': (context) =>
             const MedicalCategoryDetailPage(),
       },
@@ -172,15 +176,22 @@ class _PpageState extends State<Ppage> {
 
   Future<void> _checkSession() async {
     final accessToken = await StorageService.getAccessToken();
+    debugPrint(
+      '🏠 Ppage._checkSession: accessToken = ${accessToken != null ? "present" : "null"}',
+    );
 
     // treat null or empty tokens as missing
     if (accessToken != null && accessToken.isNotEmpty) {
       // user has tokens → restore session silently
+      debugPrint(
+        '🏠 Ppage._checkSession: calling AuthInitService.checkAndRestoreSession',
+      );
       if (!mounted) return;
       await AuthInitService.checkAndRestoreSession(context);
       await PushNotificationService.syncStoredTokenToBackend();
     } else {
       // no tokens → show login/signup buttons
+      debugPrint('🏠 Ppage._checkSession: no tokens, showing login buttons');
       if (mounted) setState(() => _sessionChecked = true);
     }
   }
