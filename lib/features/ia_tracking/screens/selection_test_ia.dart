@@ -23,8 +23,10 @@ class _SelectionTestIAPageState extends State<SelectionTestIAPage> {
 
   Future<void> _fetchData() async {
     final provider = Provider.of<GlobalDataProvider>(context, listen: false);
-    // Fetch assigned exercises from backend
-    await provider.fetchPatientExercises();
+    // Fetch assigned exercises and REAL medical history from backend
+    await Future.wait([
+      provider.fetchPatientExercises(),
+    ]);
     if (mounted) {
       setState(() => _isLoading = false);
     }
@@ -38,36 +40,75 @@ class _SelectionTestIAPageState extends State<SelectionTestIAPage> {
         'id': 'ia_shoulder_flexion',
         'title': 'Flexion de l\'épaule',
         'plan': 'PLAN SAGITTAL',
+        'requiredView': 'profil',
         'description':
-            'Levez votre bras droit devant vous aussi haut que possible en gardant le coude tendu.',
+            'Lever le bras doucement vers l\'avant. Maintenir le dos droit sans cambrer. Garder le mouvement aligné avec l\'épaule.',
         'icon': Icons.accessibility_new,
         'image': 'lib/assets/images/shoulder_flex.png',
         'videoUrl':
-            'https://firebasestorage.googleapis.com/v0/b/easyrdv-836e1.appspot.com/o/exercices%2Fshoulder_flexion.mp4?alt=media',
+            'https://youtube.com/shorts/BOnAoMjSxJY?si=6QkY-RzaZSW6YKAh',
+        'isAssigned': false,
+      },
+      {
+        'id': 'ia_shoulder_extension',
+        'title': 'Extension de l\'épaule',
+        'plan': 'PLAN SAGITTAL',
+        'requiredView': 'profil',
+        'description':
+            'Amener le bras vers l\'arrière. Effectuer un mouvement limité et contrôlé. Éviter une hyperextension douloureuse. Garder les épaules stables.',
+        'icon': Icons.settings_backup_restore,
+        'image': 'lib/assets/images/shoulder_flex.png',
+        'videoUrl':
+            'https://youtube.com/shorts/oBCsCGwCEto?si=6PHjHeDbkcSe4b1z',
         'isAssigned': false,
       },
       {
         'id': 'ia_shoulder_abduction',
         'title': 'Abduction de l\'épaule',
         'plan': 'PLAN FRONTAL',
+        'requiredView': 'face',
         'description':
-            'Levez votre bras sur le côté en l\'éloignant de votre corps jusqu\'au maximum.',
+            'Monter le bras sur le côté. Lever le bras progressivement sans hausser l’épaule. Garder le cou détendu.',
         'icon': Icons.directions_run,
         'image': 'lib/assets/images/shoulder_abd.png',
         'videoUrl':
-            'https://firebasestorage.googleapis.com/v0/b/easyrdv-836e1.appspot.com/o/exercices%2Fshoulder_abduction.mp4?alt=media',
+            'https://youtube.com/shorts/jxWFdgrDsm4?si=m66MeCm24FH32Fg2',
+        'isAssigned': false,
+      },
+      {
+        'id': 'ia_shoulder_adduction',
+        'title': 'Adduction de l\'épaule',
+        'plan': 'PLAN FRONTAL',
+        'requiredView': 'face',
+        'description':
+            'Ramener le bras vers le corps. Contrôler le retour du bras. Éviter de compenser avec le tronc.',
+        'icon': Icons.compress,
+        'image': 'lib/assets/images/shoulder_abd.png',
+        'videoUrl': 'https://www.youtube.com/shorts/cb9OMnNAa0Y?feature=share',
         'isAssigned': false,
       },
       {
         'id': 'ia_rotation_externe',
         'title': 'Rotation externe',
         'plan': 'PLAN TRANSVERSAL',
+        'requiredView': 'profil',
         'description':
-            'Avec le coude plié à 90°, pivotez votre avant-bras vers l\'extérieur.',
+            'Tourner l’avant-bras vers l’extérieur. Garder le coude proche du corps. Ne pas tourner le tronc pour compenser.',
         'icon': Icons.sync,
         'image': 'lib/assets/images/shoulder_rot.png',
-        'videoUrl':
-            'https://firebasestorage.googleapis.com/v0/b/easyrdv-836e1.appspot.com/o/exercices%2Fshoulder_rotation.mp4?alt=media',
+        'videoUrl': 'https://www.youtube.com/watch?v=Jo8EaB68S28',
+        'isAssigned': false,
+      },
+      {
+        'id': 'ia_rotation_interne',
+        'title': 'Rotation interne',
+        'plan': 'PLAN TRANSVERSAL',
+        'requiredView': 'profil',
+        'description':
+            'Tourner l’avant-bras vers l’intérieur. Maintenir le coude collé au corps. Éviter les mouvements rapides.',
+        'icon': Icons.sync_alt,
+        'image': 'lib/assets/images/shoulder_rot.png',
+        'videoUrl': 'https://www.youtube.com/watch?v=RAmdZBJ57ZY',
         'isAssigned': false,
       },
     ];
@@ -137,6 +178,12 @@ class _SelectionTestIAPageState extends State<SelectionTestIAPage> {
                   ...allExercises
                       .map((ex) => _buildExerciseCard(context, ex))
                       .toList(),
+                  const SizedBox(height: 20),
+
+                  // Bouton vers le rapport final (Seulement si complet)
+                  if (provider.isFullSessionComplete)
+                    _buildFinalReportButton(context),
+
                   const SizedBox(height: 100),
                 ],
               ),
@@ -218,16 +265,47 @@ class _SelectionTestIAPageState extends State<SelectionTestIAPage> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      exercise['plan'],
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: exercise['isAssigned']
-                            ? const Color(0xFFFF5630)
-                            : Colors.grey[400],
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            exercise['plan'],
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: exercise['isAssigned']
+                                  ? const Color(0xFFFF5630)
+                                  : Colors.grey[400],
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (Provider.of<GlobalDataProvider>(
+                          context,
+                        ).completedTestsInSession.contains(exercise['id']))
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                "TERMINÉ ✅",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -278,6 +356,7 @@ class _SelectionTestIAPageState extends State<SelectionTestIAPage> {
                         description: exercise['description'],
                         imageUrl: exercise['image'],
                         videoUrl: exercise['videoUrl'],
+                        requiredView: exercise['requiredView'],
                       ),
                     );
                     Navigator.pushNamed(context, '/preparation_test_ia');
@@ -307,6 +386,49 @@ class _SelectionTestIAPageState extends State<SelectionTestIAPage> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFinalReportButton(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D54F2), Color(0xFF1E40AF)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D54F2).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/resultat_test_ia'),
+        child: const Column(
+          children: [
+            Icon(Icons.assignment_turned_in, color: Colors.white, size: 32),
+            SizedBox(height: 12),
+            Text(
+              "VOIR MON ANALYSE COMPLÈTE",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.1,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              "Les 6 tests ont été validés avec succès",
+              style: TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+          ],
+        ),
       ),
     );
   }

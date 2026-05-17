@@ -12,6 +12,13 @@ enum PoseLandmarkType {
   rightHip,
   leftKnee,
   rightKnee,
+  leftAnkle,
+  rightAnkle,
+  nose,
+  leftEye,
+  rightEye,
+  leftEar,
+  rightEar,
 }
 
 class PoseLandmark {

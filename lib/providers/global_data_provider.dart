@@ -43,11 +43,26 @@ class GlobalDataProvider extends ChangeNotifier {
   ContentModel? selectedExercise;
 
   // Historique des suivis IA
-  final List<IATrackingData> _trackingHistory = [];
+  List<IATrackingData> _trackingHistory = [];
   List<IATrackingData> get trackingHistory => _trackingHistory;
 
   // Résultat du dernier suivi IA en direct
   IATrackingData? lastTrackingResult;
+
+  // Configuration de la session en cours (Avant démarrage)
+  IATrackingData? currentSessionData;
+
+  // Liste des tests complétés dans la session actuelle
+  final List<String> _completedTestsInSession = [];
+  List<String> get completedTestsInSession => _completedTestsInSession;
+
+  bool get isFullSessionComplete =>
+      _completedTestsInSession.contains('ia_shoulder_flexion') &&
+      _completedTestsInSession.contains('ia_shoulder_abduction') &&
+      _completedTestsInSession.contains('ia_shoulder_extension') &&
+      _completedTestsInSession.contains('ia_shoulder_adduction') &&
+      _completedTestsInSession.contains('ia_rotation_externe') &&
+      _completedTestsInSession.contains('ia_rotation_interne');
 
   // Liste des rendez-vous
   List<AppointmentModel> _appointments = [];
@@ -187,8 +202,19 @@ class GlobalDataProvider extends ChangeNotifier {
     selectedExercise = exercise;
     if (exercise != null) {
       addToViewed(exercise);
+      // Pré-initialiser la session avec l'exercice choisi
+      currentSessionData = IATrackingData.fromContent(exercise);
     }
     notifyListeners();
+  }
+
+  // Configurer la session (ex: choix de la vue)
+  // Vue détectée automatiquement par le CV — aucun paramètre obligatoire
+  void configureSession({CameraView view = CameraView.front}) {
+    if (currentSessionData != null) {
+      currentSessionData!.selectedView = view;
+      notifyListeners();
+    }
   }
 
   GlobalDataProvider() {
@@ -216,62 +242,142 @@ class GlobalDataProvider extends ChangeNotifier {
       final List<dynamic> decodedData = json.decode(encodedData);
       _trackingHistory.clear();
       _trackingHistory.addAll(
-        decodedData.map((e) => IATrackingData.fromJson(e)).toList(),
+        decodedData.map<IATrackingData>((e) => IATrackingData.fromJson(e)).toList(),
       );
     } else {
-      // Données mockées initiales si aucune donnée sauvegardée
+      // Données mockées initiales avec IDs corrects pour l'analyse
+      final now = DateTime.now();
       _trackingHistory.addAll([
+        // --- SESSION 1 (Il y a 7 jours) ---
+        // Épaule SAINE (Référence)
         IATrackingData(
+          exerciseId: 'flexion',
           title: 'FLEXION D\'ÉPAULE',
-          currentValue: 95,
+          currentValue: 180.0,
           unit: '°',
-          objective: 180,
+          objective: 180.0,
+          precision: 99.0,
+          guidanceText: '',
+          isHealthy: true,
+          side: "Gauche",
+          date: now.subtract(const Duration(days: 7)),
+        ),
+        // Épaule MALADE (Initial)
+        IATrackingData(
+          exerciseId: 'flexion',
+          title: 'FLEXION D\'ÉPAULE',
+          currentValue: 150.0,
+          unit: '°',
+          objective: 180.0,
           precision: 95.0,
           guidanceText: '',
-          angleHistory: [40, 60, 80, 95],
-          painHistory: [8, 7, 7, 8],
-          painLevel: 8.0,
-          date: DateTime.now().subtract(const Duration(days: 28)),
+          isHealthy: false,
+          side: "Droite",
+          painLevel: 6.0,
+          date: now.subtract(const Duration(days: 7)),
         ),
+
+        // --- SESSION 2 (AUJOURD'HUI) ---
+        // Épaule MALADE (Progrès : 165° soit +15°)
         IATrackingData(
+          exerciseId: 'flexion',
           title: 'FLEXION D\'ÉPAULE',
-          currentValue: 110,
+          currentValue: 165.0,
           unit: '°',
-          objective: 180,
-          precision: 96.0,
-          guidanceText: '',
-          angleHistory: [50, 80, 100, 110],
-          painHistory: [7, 6, 6, 6.5],
-          painLevel: 6.5,
-          date: DateTime.now().subtract(const Duration(days: 21)),
-        ),
-        IATrackingData(
-          title: 'FLEXION D\'ÉPAULE',
-          currentValue: 125,
-          unit: '°',
-          objective: 180,
-          precision: 97.5,
-          guidanceText: '',
-          angleHistory: [60, 90, 110, 125],
-          painHistory: [6, 5, 5, 5],
-          painLevel: 5.0,
-          date: DateTime.now().subtract(const Duration(days: 14)),
-        ),
-        IATrackingData(
-          title: 'FLEXION D\'ÉPAULE',
-          currentValue: 135,
-          unit: '°',
-          objective: 180,
+          objective: 180.0,
           precision: 98.0,
-          guidanceText: '',
-          angleHistory: [70, 100, 120, 135],
-          painHistory: [5, 4, 3, 3.5],
+          guidanceText: 'Excellent progrès',
+          isHealthy: false,
+          side: "Droite",
           painLevel: 3.5,
-          date: DateTime.now().subtract(const Duration(days: 7)),
-          sessionFrames: [],
+          date: now,
+        ),
+        // Abduction MALADE (Progrès : 152° soit +2°)
+        IATrackingData(
+          exerciseId: 'abduction',
+          title: 'ABDUCTION',
+          currentValue: 152.0,
+          unit: '°',
+          objective: 180.0,
+          precision: 94.0,
+          guidanceText: '',
+          isHealthy: false,
+          side: "Droite",
+          painLevel: 5.0,
+          date: now,
+        ),
+        // Rotation externe MALADE (+12°)
+        IATrackingData(
+          exerciseId: 'rotation_externe',
+          title: 'ROTATION EXTERNE',
+          currentValue: 45.0,
+          unit: '°',
+          objective: 90.0,
+          precision: 92.0,
+          isHealthy: false,
+          side: "Droite",
+          painLevel: 4.0,
+          date: now,
+        ),
+        IATrackingData(
+          exerciseId: 'rotation_externe',
+          title: 'ROTATION EXTERNE',
+          currentValue: 33.0,
+          unit: '°',
+          objective: 90.0,
+          isHealthy: false,
+          side: "Droite",
+          date: now.subtract(const Duration(days: 7)),
+        ),
+        // Rotation interne MALADE (+5°)
+        IATrackingData(
+          exerciseId: 'rotation_interne',
+          title: 'ROTATION INTERNE',
+          currentValue: 40.0,
+          unit: '°',
+          objective: 70.0,
+          precision: 90.0,
+          isHealthy: false,
+          side: "Droite",
+          date: now,
+        ),
+        IATrackingData(
+          exerciseId: 'rotation_interne',
+          title: 'ROTATION INTERNE',
+          currentValue: 35.0,
+          unit: '°',
+          objective: 70.0,
+          isHealthy: false,
+          side: "Droite",
+          date: now.subtract(const Duration(days: 7)),
+        ),
+        // Données Saines
+        IATrackingData(
+          exerciseId: 'abduction',
+          title: 'ABDUCTION',
+          currentValue: 175.0,
+          unit: '°',
+          objective: 180.0,
+          precision: 99.0,
+          isHealthy: true,
+          side: "Gauche",
+          date: now,
+          guidanceText: '',
+        ),
+        IATrackingData(
+          exerciseId: 'rotation_externe',
+          title: 'ROTATION EXTERNE',
+          currentValue: 85.0,
+          unit: '°',
+          objective: 90.0,
+          isHealthy: true,
+          side: "Gauche",
+          date: now,
+          precision: 0.0,
+          guidanceText: '',
         ),
       ]);
-      _saveTrackingHistory(); // Sauvegarder les mock pour la première fois
+      _saveTrackingHistory();
     }
     notifyListeners();
   }
@@ -282,16 +388,16 @@ class GlobalDataProvider extends ChangeNotifier {
     final List<double> historicalAngles = _trackingHistory.length >= 4
         ? _trackingHistory
               .sublist(_trackingHistory.length - 4)
-              .map((e) => e.currentValue)
+              .map<double>((e) => e.currentValue.toDouble())
               .toList()
-        : _trackingHistory.map((e) => e.currentValue).toList();
+        : _trackingHistory.map<double>((e) => e.currentValue.toDouble()).toList();
 
     final List<double> historicalPain = _trackingHistory.length >= 4
         ? _trackingHistory
               .sublist(_trackingHistory.length - 4)
-              .map((e) => e.painLevel ?? 0.0)
+              .map<double>((e) => (e.painLevel ?? 0.0).toDouble())
               .toList()
-        : _trackingHistory.map((e) => e.painLevel ?? 0.0).toList();
+        : _trackingHistory.map<double>((e) => (e.painLevel ?? 0.0).toDouble()).toList();
 
     // Ajouter la valeur actuelle à la fin
     historicalAngles.add(result.currentValue);
@@ -322,11 +428,27 @@ class GlobalDataProvider extends ChangeNotifier {
       minElbowFlexion: result.minElbowFlexion,
       avgShoulderImbalance: result.avgShoulderImbalance,
       aiSummary: result.aiSummary,
+      side: result.side,
+      isHealthy: result.isHealthy,
+      remarks: result.remarks,
     );
 
     lastTrackingResult = enrichedResult;
     _trackingHistory.add(enrichedResult);
+
+    // Marquer le test comme complété dans la session actuelle
+    if (result.exerciseId != null &&
+        !_completedTestsInSession.contains(result.exerciseId)) {
+      _completedTestsInSession.add(result.exerciseId!);
+    }
+
     _saveTrackingHistory();
+    notifyListeners();
+  }
+
+  // Réinitialiser la session actuelle
+  void resetCurrentSession() {
+    _completedTestsInSession.clear();
     notifyListeners();
   }
 
@@ -334,6 +456,7 @@ class GlobalDataProvider extends ChangeNotifier {
   void updateLastResultPain(double painLevel) {
     if (lastTrackingResult != null) {
       lastTrackingResult = IATrackingData(
+        exerciseId: lastTrackingResult!.exerciseId,
         title: lastTrackingResult!.title,
         currentValue: lastTrackingResult!.currentValue,
         unit: lastTrackingResult!.unit,
@@ -345,6 +468,10 @@ class GlobalDataProvider extends ChangeNotifier {
         painLevel: painLevel,
         date: lastTrackingResult!.date,
         sessionFrames: lastTrackingResult!.sessionFrames,
+        side: lastTrackingResult!.side,
+        isHealthy: lastTrackingResult!.isHealthy,
+        selectedView: lastTrackingResult!.selectedView,
+        remarks: lastTrackingResult!.remarks,
       );
 
       // Mettre à jour aussi dans l'historique (le dernier élément)
@@ -355,5 +482,60 @@ class GlobalDataProvider extends ChangeNotifier {
       _saveTrackingHistory();
       notifyListeners();
     }
+  }
+
+  // Récupérer la valeur de la session précédente pour le même exercice
+  double? getPreviousSessionValue(String? exerciseId) {
+    if (exerciseId == null) return null;
+
+    // Filtrer l'historique pour cet exercice
+    final exerciseHistory = _trackingHistory
+        .where((e) => e.exerciseId == exerciseId)
+        .toList();
+
+    // Si on a au moins 2 sessions, la précédente est l'avant-dernière
+    if (exerciseHistory.length >= 2) {
+      return exerciseHistory[exerciseHistory.length - 2].currentValue;
+    }
+
+    return null;
+  }
+
+  // Récupérer la dernière valeur enregistrée pour un type d'exercice (flexion, abduction, rotation)
+  double? getLatestValueFor(String type) {
+    try {
+      final results = _trackingHistory
+          .where(
+            (e) =>
+                e.exerciseId?.toLowerCase().contains(type.toLowerCase()) ??
+                false,
+          )
+          .toList();
+      if (results.isNotEmpty) {
+        return results.last.currentValue;
+      }
+    } catch (e) {
+      debugPrint("Error fetching latest value for $type: $e");
+    }
+    return null;
+  }
+
+  // Récupérer la valeur pour un exercice et un côté spécifique (Sain ou Patho)
+  double? getValueForSide(String baseId, {required bool healthy}) {
+    try {
+      final results = _trackingHistory
+          .where(
+            (e) =>
+                (e.exerciseId?.contains(baseId) ?? false) &&
+                e.isHealthy == healthy,
+          )
+          .toList();
+      if (results.isNotEmpty) {
+        return results.last.currentValue;
+      }
+    } catch (e) {
+      debugPrint("Error fetching value for $baseId (healthy: $healthy): $e");
+    }
+    return null;
   }
 }

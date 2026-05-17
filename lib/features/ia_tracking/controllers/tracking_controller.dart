@@ -13,7 +13,7 @@ class TrackingController extends ChangeNotifier {
   IATrackingData? _trackingData;
   IATrackingData? get trackingData => _trackingData;
 
-  String _feedbackMessage = "Pret a commencer ?";
+  String _feedbackMessage = "Prêt à commencer ?";
   String get feedbackMessage => _feedbackMessage;
 
   bool _isComparisonCorrect = true;
@@ -63,6 +63,8 @@ class TrackingController extends ChangeNotifier {
     PoseLandmarkType.rightHip: SmoothedPoint(alpha: 0.35),
   };
 
+  static const double minConfidence = 0.45;
+
   double get bestValidAngle => _bestValidAngle;
   double get movementQualityScore => _computeMovementQuality();
 
@@ -70,7 +72,7 @@ class TrackingController extends ChangeNotifier {
     _trackingData = data;
     _trackingData!.repetitionCount = 0; // Reset repetition count
     _state = TrackingState.waiting;
-    _feedbackMessage = "Mettez-vous en position de depart";
+    _feedbackMessage = "Mettez-vous en position initiale";
     _isCalibrated = false;
     _smoothedAngle = 0.0;
     _hasSmoothedAngle = false;
@@ -106,13 +108,15 @@ class TrackingController extends ChangeNotifier {
     final rWrist = pose.landmarks[PoseLandmarkType.rightWrist];
     final rHip = pose.landmarks[PoseLandmarkType.rightHip];
 
-    // Senior AI Debug: On accepte ABSOLUMENT TOUT (0.0) pour voir ce qui se passe
-    if (lShoulder == null || rShoulder == null) {
+    if (lShoulder == null || rShoulder == null || lHip == null || rHip == null) {
       return;
     }
     
-    // On désactive les filtres de confiance pour le diagnostic
-    if (lShoulder.likelihood < 0.0 || rShoulder.likelihood < 0.0) {
+    // Filtrage strict par score de confiance (Precision AI)
+    if (lShoulder.likelihood < minConfidence || 
+        rShoulder.likelihood < minConfidence ||
+        lHip.likelihood < minConfidence ||
+        rHip.likelihood < minConfidence) {
       return;
     }
 
@@ -217,7 +221,23 @@ class TrackingController extends ChangeNotifier {
       }
     }
 
-    final double rawCurrentAngle = _isLeftArmActive! ? lAngle : rAngle;
+    // ─── Logique Mathématique Clinique (100% Précision) ───
+    double rawCurrentAngle = 0.0;
+    final String exerciseId = _trackingData!.exerciseId ?? "";
+
+    if (exerciseId.contains('rotation')) {
+      // Formule spécifique pour la Rotation Externe (Plan Transversal)
+      rawCurrentAngle = _isLeftArmActive! 
+          ? _calculateExternalRotationAngle(lS as PoseLandmark, lE as PoseLandmark?, lW as PoseLandmark?)
+          : _calculateExternalRotationAngle(rS as PoseLandmark, rE as PoseLandmark?, rW as PoseLandmark?);
+    } else if (exerciseId.contains('abduction')) {
+      // Formule pour l'Abduction (Plan Frontal - Écartement latéral)
+      rawCurrentAngle = _isLeftArmActive! ? lAngle : rAngle;
+    } else {
+      // Formule par défaut pour la Flexion (Plan Sagittal - Élévation frontale)
+      rawCurrentAngle = _isLeftArmActive! ? lAngle : rAngle;
+    }
+
     final double currentAngle = _smoothAngle(rawCurrentAngle);
     _trackingData!.currentValue = currentAngle;
 
@@ -227,11 +247,15 @@ class TrackingController extends ChangeNotifier {
     }
 
     // ─── Calcul du déséquilibre des épaules (Nouveau) ───
-    final double shoulderWidth = _pointDistance(lS, rS);
-    final double shoulderDiffY = (lS.y - rS.y).abs();
-    final double shoulderImbalance = (shoulderWidth > 0)
-        ? (shoulderDiffY / shoulderWidth) * 100
-        : 0.0;
+    // On ne calcule pas le déséquilibre en vue de profil car non pertinent (occlusion)
+    double shoulderImbalance = 0.0;
+    if (_trackingData!.selectedView != CameraView.profile) {
+      final double shoulderWidth = _pointDistance(lS, rS);
+      final double shoulderDiffY = (lS.y - rS.y).abs();
+      shoulderImbalance = (shoulderWidth > 10)
+          ? (shoulderDiffY / shoulderWidth) * 100
+          : 0.0;
+    }
     _trackingData!.shoulderImbalance = shoulderImbalance;
     _sessionShoulderImbalanceHistory.add(shoulderImbalance);
     if (_sessionShoulderImbalanceHistory.length > 240) {
@@ -259,21 +283,18 @@ class TrackingController extends ChangeNotifier {
     _isComparisonCorrect = true;
 
     // Échelonnage des priorités de feedback (Senior Level Architecture)
-    if (trunkAngle.abs() > 8.0) {
-      // Seuil durci : le dos doit rester droit
+    if (trunkAngle.abs() > 10.0) {
+      // Seuil ajusté pour éviter les corrections incessantes
       _isComparisonCorrect = false;
-      // Note: trunkAngle > 0 means leaning to user's left in front camera data
       _feedbackMessage = trunkAngle > 0 
-          ? "Redressez-vous vers la droite" 
-          : "Redressez-vous vers la gauche";
-    } else if (currentAngle < 120.0 && shoulderImbalance > 25.0) {
-      // Haussement d'épaule : seulement pénalisant en début/milieu de mouvement
-      // On augmente le seuil de 15% à 25% pour permettre l'évaluation de l'angle
+          ? "Stabilisez votre buste vers la droite" 
+          : "Stabilisez votre buste vers la gauche";
+    } else if (_trackingData!.selectedView != CameraView.profile && currentAngle < 120.0 && shoulderImbalance > 25.0) {
       _isComparisonCorrect = false;
-      _feedbackMessage = "Gardez vos épaules au même niveau";
-    } else if (elbowFlex < 150.0) {
+      _feedbackMessage = "Relâchez vos épaules";
+    } else if (elbowFlex < 145.0) {
       _isComparisonCorrect = false;
-      _feedbackMessage = "Gardez votre bras tendu";
+      _feedbackMessage = "Maintenez le bras bien tendu";
     }
 
     _trackingData!.isPostureCorrect = _isComparisonCorrect;
@@ -296,7 +317,7 @@ class TrackingController extends ChangeNotifier {
           _state = TrackingState.inProgress;
         } else {
           _feedbackMessage = _isComparisonCorrect
-              ? "Levez le bras pour commencer"
+              ? "Amorcez le mouvement d'élévation"
               : _feedbackMessage;
         }
         break;
@@ -305,11 +326,11 @@ class TrackingController extends ChangeNotifier {
         if (currentAngle >= _trackingData!.objective - 8.0) {
           _state = TrackingState.completed;
           _feedbackMessage = _isComparisonCorrect
-              ? "Objectif atteint, redescendez"
+              ? "Objectif atteint, redescendez doucement"
               : _feedbackMessage;
         } else {
           _feedbackMessage = _isComparisonCorrect
-              ? "Montez encore un peu"
+              ? "Continuez l'élévation"
               : _feedbackMessage;
         }
         break;

@@ -17,7 +17,7 @@ Attendez que tous les conteneurs soient `Healthy` / `Started`.
 
 Vérifiez que le backend répond :
 ```powershell
-Invoke-WebRequest -Uri http://127.0.0.1:4000 -UseBasicParsing
+Invoke-WebRequest -Uri http://127.0.0.1:3000 -UseBasicParsing
 ```
 Vous devez voir `Hello World!`.
 
@@ -28,7 +28,7 @@ Vous devez voir `Hello World!`.
 Ces commandes permettent au téléphone d'accéder au PC via `127.0.0.1` à travers le câble USB :
 
 ```powershell
-C:\Users\PCS\AppData\Local\Android\sdk\platform-tools\adb.exe reverse tcp:4000 tcp:4000
+C:\Users\PCS\AppData\Local\Android\sdk\platform-tools\adb.exe reverse tcp:3000 tcp:3000
 C:\Users\PCS\AppData\Local\Android\sdk\platform-tools\adb.exe reverse tcp:9000 tcp:9000
 ```
 
@@ -38,7 +38,7 @@ C:\Users\PCS\AppData\Local\Android\sdk\platform-tools\adb.exe reverse --list
 ```
 Vous devez voir :
 ```
-UsbFfs tcp:4000 tcp:4000
+UsbFfs tcp:3000 tcp:3000
 UsbFfs tcp:9000 tcp:9000
 ```
 
@@ -58,8 +58,8 @@ flutter run
 | Élément | Valeur correcte |
 |---|---|
 | `.env` Flutter (`c:\Users\PCS\sahtek\.env`) | `HOST=127.0.0.1` |
-| Port backend (dans `app_config.dart`) | `4000` (pas 3000) |
-| Port backend Docker (`docker-compose.yaml`) | `4000:4000` |
+| Port backend (dans `app_config.dart`) | `3000` (pas 4000) |
+| Port backend Docker (`docker-compose.yaml`) | `3000:3000` |
 | Port MinIO | `9000` |
 
 ### Pourquoi `adb reverse` ?
@@ -88,7 +88,7 @@ cd c:\Users\PCS\sahtek\SAHTHECK-bacend
 docker-compose up -d backend
 
 # 2. Tunnels ADB
-C:\Users\PCS\AppData\Local\Android\sdk\platform-tools\adb.exe reverse tcp:4000 tcp:4000
+C:\Users\PCS\AppData\Local\Android\sdk\platform-tools\adb.exe reverse tcp:3000 tcp:3000
 C:\Users\PCS\AppData\Local\Android\sdk\platform-tools\adb.exe reverse tcp:9000 tcp:9000
 
 # 3. Flutter

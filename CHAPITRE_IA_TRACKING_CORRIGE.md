@@ -40,7 +40,7 @@ La préparation des données dans notre module se fait en plusieurs étapes :
 | :--- | :--- | :--- |
 | Réception et validation | L'application reçoit le flux caméra et valide la disponibilité de la caméra frontale et des autorisations OS. | Flux caméra actif et autorisé |
 | Préparation pour ML Kit | Chaque frame est extraite toutes les 150 ms et convertie au format InputImage requis par ML Kit. | InputImage prête pour l'inférence |
-| Préparation et Traitement biomécanique | Filtrage par score de confiance (rejet si < 0.3), calcul des angles articulaires, puis lissage de l'angle par EMA. | Angles lissés disponibles |
+| Préparation et Traitement biomécanique | Filtrage par score de confiance (rejet si < 0.45), calcul des angles articulaires, puis lissage de l'angle par EMA. | Angles lissés disponibles |
 | Post-traitement | Les compensations sont détectées, les répétitions comptées par FSM. | Métriques cliniques générées |
 *Figure 2 : Étapes de préparation des données dans le module IA Tracking*
 
@@ -60,7 +60,7 @@ La préparation diffère selon la source de la frame (caméra frontale ou vidéo
 ### 4.1.3 Traitement biomécanique et Lissage
 Une fois les landmarks extraits par ML Kit, chaque point est livré sous forme de coordonnées (X, Y) accompagnées d'un **score de fiabilité (confiance)**. Le traitement par le TrackingController respecte l'ordre chronologique suivant :
 
-1. **Filtrage de confiance :** Le système évalue le score de fiabilité de chaque point extrait. Si ce score est inférieur au seuil de **0.3**, le point est rejeté pour éviter les fausses détections ou le bruit lié à une mauvaise visibilité. Sinon, le point est acquis.
+1. **Filtrage de confiance :** Le système évalue le score de fiabilité de chaque point extrait. Si ce score est inférieur au seuil de **0.45** (seuil de précision clinique SAHTECH), le point est rejeté pour éviter les fausses détections liées à une mauvaise visibilité ou une occlusion partielle. Sinon, le point est acquis.
 2. **Sélection et Calcul Angulaire :** Les articulations pertinentes pour l'exercice sont identifiées. L'angle articulaire brut (ROM) est ensuite calculé via la fonction trigonométrique `atan2` à partir des coordonnées XY acquises.
 3. **Lissage du signal :** Pour éliminer les micro-variations et stabiliser la courbe de la valeur angulaire, le filtre EMA (Exponential Moving Average) est appliqué **sur les angles calculés** avec un facteur de lissage α ∈ [0,65 ; 0,85]. Le TrackingController applique la formule : `Angle_Lisséₜ = α · Angle_Brutₜ + (1−α) · Angle_Lisséₜ₋₁`.
 
@@ -74,9 +74,9 @@ Imaginons une session avec : exercice = abduction d'épaule, objectif = 90°, 10
 
 • **Réception :** L'application démarre la caméra, valide le cadrage (corps entier visible, fond neutre, éclairage suffisant). L'exercice est chargé depuis GlobalDataProvider.
 • **Préparation ML Kit :** Chaque frame est extraite toutes les 150 ms et convertie en InputImage. Le modèle BlazePose retourne les coordonnées (X, Y) et le score de confiance des 33 landmarks avec une latence ≤ 110 ms par frame.
-• **Traitement biomécanique :** Les points de l'épaule, du coude et de la hanche sont acquis et validés (score de confiance > 0.3). L'angle ROM est d'abord calculé via la fonction `atan2`. Ensuite, le résultat angulaire brut est filtré par l'algorithme EMA (α = 0,75) pour stabiliser la courbe. La FSM détecte la progression (Waiting → InProgress → Completed) et valide chaque répétition.
-• **Coaching vocal :** Dès qu'un haussement d'épaule > 12% est détecté, LocalAIService génère le message « Abaissez l'épaule » transmis à flutter_tts. Latence totale : ~150 ms.
-• **Réponse (rapport clinique) :** En fin de session, le système compile : ROM max atteint, 10 répétitions détectées, score qualité calculé, courbes d'évolution générées via ChartPainter. Rapport affiché en < 3 secondes.
+• **Traitement biomécanique :** Les points de l'épaule, du coude et de la hanche sont acquis et validés (score de confiance > 0.45). L'angle ROM est d'abord calculé via la fonction `atan2`. Ensuite, le résultat angulaire brut est filtré par l'algorithme EMA (α = 0,75) pour stabiliser la courbe. La FSM détecte la progression (Waiting → InProgress → Completed) et valide chaque répétition.
+• **Coaching vocal :** Dès qu'un haussement d'épaule > 12% est détecté, LocalAIService génère le message « Abaissez l'épaule » transmis à flutter_tts. Latence totale : ~150 ms. Aucune API externe n'est sollicitée.
+• **Réponse (Rapport Premium) :** En fin de session, le système compile : ROM max atteint, répétitions validées, score qualité calculé. Le rapport est affiché instantanément via une interface Dashboard Premium sans chargement réseau.
 
 # 5. Les bibliothèques utilisées et leur rôle dans le module
 Ce tableau présente les différentes bibliothèques/packages utilisés dans le module IA Tracking de SAHTECH.
@@ -157,7 +157,7 @@ Pour évaluer les performances des solutions TTS, nous utilisons plusieurs métr
 | Coqui TTS (local) | 200–800 ms | ✔ | 3,8 / 5 | ✔ | Non disponible | 4 / 10 |
 *Sources : Tan et al. (2022) — Natural TTS Synthesis Survey ; Google Cloud TTS Benchmark (2024) ; pub.dev flutter_tts*
 
-`flutter_tts` est la seule solution offrant une latence < 150 ms avec un fonctionnement 100 % hors-ligne et une conformité RGPD native. Les solutions cloud affichent des qualités vocales supérieures (MOS 4,6–4,9) mais introduisent une latence réseau incompressible de 200–1000 ms et violent le prérequis fondamental d'Edge AI du projet SAHTECH.
+`flutter_tts` est la seule solution offrant une latence < 150 ms avec un fonctionnement 100 % hors-ligne et une conformité RGPD native. L'application SAHTECH a volontairement supprimé toute dépendance aux API LLM externes (Gemini, Claude) pour le coaching live afin de garantir une fiabilité totale en zone blanche et une protection absolue des données de santé.
 
 ## 6.4 Analyse comparative des algorithmes de traitement du signal
 

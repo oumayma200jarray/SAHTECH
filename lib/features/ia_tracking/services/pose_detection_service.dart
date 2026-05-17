@@ -13,9 +13,18 @@ class PoseDetectionService {
   Future<List<Pose>> processImage(mlkit.InputImage inputImage) async {
     try {
       final mlkitPoses = await _poseDetector.processImage(inputImage);
+      
       if (mlkitPoses.isNotEmpty) {
-        // debugPrint('MLKit Service: Found ${mlkitPoses.length} poses');
+        final pose = mlkitPoses.first;
+        // Print pour déboguer les données ML Kit
+        debugPrint('--- ML Kit Pose Data ---');
+        pose.landmarks.forEach((type, landmark) {
+          if (type == mlkit.PoseLandmarkType.nose || type == mlkit.PoseLandmarkType.leftShoulder) {
+            debugPrint('Point: ${type.name} | x: ${landmark.x.toStringAsFixed(2)}, y: ${landmark.y.toStringAsFixed(2)}, conf: ${landmark.likelihood.toStringAsFixed(2)}');
+          }
+        });
       }
+      
       return mlkitPoses.map((p) => _mapToCustomPose(p)).toList();
     } catch (e) {
       debugPrint('MLKit Service Error: $e');
@@ -40,7 +49,14 @@ class PoseDetectionService {
         case mlkit.PoseLandmarkType.rightHip: customType = PoseLandmarkType.rightHip; break;
         case mlkit.PoseLandmarkType.leftKnee: customType = PoseLandmarkType.leftKnee; break;
         case mlkit.PoseLandmarkType.rightKnee: customType = PoseLandmarkType.rightKnee; break;
-        default: break; // On ignore les autres points (visage, pieds, etc.) pour optimiser
+        case mlkit.PoseLandmarkType.leftAnkle: customType = PoseLandmarkType.leftAnkle; break;
+        case mlkit.PoseLandmarkType.rightAnkle: customType = PoseLandmarkType.rightAnkle; break;
+        case mlkit.PoseLandmarkType.nose: customType = PoseLandmarkType.nose; break;
+        case mlkit.PoseLandmarkType.leftEye: customType = PoseLandmarkType.leftEye; break;
+        case mlkit.PoseLandmarkType.rightEye: customType = PoseLandmarkType.rightEye; break;
+        case mlkit.PoseLandmarkType.leftEar: customType = PoseLandmarkType.leftEar; break;
+        case mlkit.PoseLandmarkType.rightEar: customType = PoseLandmarkType.rightEar; break;
+        default: break; 
       }
 
       if (customType != null) {

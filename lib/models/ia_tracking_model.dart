@@ -1,49 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:sahtek/models/content_model.dart';
 
+enum CameraView { front, profile, back }
+
 class IATrackingData {
   final String? exerciseId;
   final String title;
-  double currentValue; // Rendu mutable pour les mises à jour en direct
-  final String unit; // ex: "°"
-  final double objective; // ex: 180
-  final double precision; // Pourcentage de confiance IA
-  String guidanceText; // Rendu mutable pour les conseils dynamiques
-  final List<double> angleHistory; // Pour le graphique
-  final List<double> painHistory; // Historique de douleur synchronisé
-  final double? painLevel; // Niveau de douleur final (0-10)
+  double currentValue;
+  double leftValue;
+  double rightValue;
+  final String unit;
+  final double objective;
+  final double precision;
+  String guidanceText;
+  final List<double> angleHistory;
+  final List<double> painHistory;
+  final double? painLevel;
   final DateTime date;
-  final List<String> sessionFrames; // Pour le Time-Lapse
-  String? aiSummary; // Conclusion d'expert générée en fin de session
+  final List<String> sessionFrames;
+  String? aiSummary;
+  CameraView selectedView;
 
-  // Métriques de qualité du mouvement (pour éviter que l'IA ne valide des mouvements "tricheurs")
-  double
-  trunkLeanAngle; // Angle d'inclinaison du corps (absolu)
-  double
-  signedTrunkLean; // Inclinaison signée (+ droite, - gauche)
-  double
-  elbowFlexion; // Angle du coude (le bras doit rester tendu pour certains exercices)
-  bool
-  isPostureCorrect; // Flag global indiquant si le mouvement respecte la biomécanique
-  double
-  shoulderImbalance; // Différence de hauteur entre les épaules (en pixels ou ratio)
+  // Métriques de qualité
+  double trunkLeanAngle;
+  double signedTrunkLean;
+  double elbowFlexion;
+  bool isPostureCorrect;
+  double shoulderImbalance;
+  double avgShoulderImbalance;
   
-  // Statistiques de session (Senior AI Analytics)
+  // Stats de session
   int repetitionCount;
   int totalRepsPlanned;
   double avgTrunkLean;
   double maxTrunkLean;
   double minElbowFlexion;
-  double avgShoulderImbalance;
+
+  final List<String> remarks;
+  final bool isHealthy;
+  final String side;
 
   IATrackingData({
     this.exerciseId,
     required this.title,
     required this.currentValue,
+    this.leftValue = 0.0,
+    this.rightValue = 0.0,
     required this.unit,
     required this.objective,
-    required this.precision,
-    required this.guidanceText,
+    this.precision = 0.0,
+    this.guidanceText = '',
     this.angleHistory = const [],
     this.painHistory = const [],
     this.painLevel,
@@ -61,9 +67,12 @@ class IATrackingData {
     this.maxTrunkLean = 0.0,
     this.minElbowFlexion = 180.0,
     this.avgShoulderImbalance = 0.0,
+    this.selectedView = CameraView.front,
+    this.remarks = const [],
+    this.isHealthy = false,
+    this.side = "Gauche",
   });
 
-  /// Crée un objet de tracking à partir d'un exercice (ContentModel)
   factory IATrackingData.fromContent(ContentModel content) => IATrackingData(
     exerciseId: content.id,
     title: content.title.toUpperCase(),
@@ -74,12 +83,17 @@ class IATrackingData {
     guidanceText: 'Prêt à commencer',
     date: DateTime.now(),
     sessionFrames: [],
+    selectedView: content.id.contains('flexion')
+        ? CameraView.profile
+        : CameraView.front,
   );
 
   Map<String, dynamic> toJson() => {
     'exerciseId': exerciseId,
     'title': title,
     'currentValue': currentValue,
+    'leftValue': leftValue,
+    'rightValue': rightValue,
     'unit': unit,
     'objective': objective,
     'precision': precision,
@@ -101,33 +115,27 @@ class IATrackingData {
     'maxTrunkLean': maxTrunkLean,
     'minElbowFlexion': minElbowFlexion,
     'avgShoulderImbalance': avgShoulderImbalance,
+    'selectedView': selectedView.index,
+    'isHealthy': isHealthy,
+    'side': side,
+    'remarks': remarks,
   };
 
   factory IATrackingData.fromJson(Map<String, dynamic> json) => IATrackingData(
     exerciseId: json['exerciseId'],
     title: json['title'],
     currentValue: (json['currentValue'] as num).toDouble(),
+    leftValue: (json['leftValue'] ?? 0.0).toDouble(),
+    rightValue: (json['rightValue'] ?? 0.0).toDouble(),
     unit: json['unit'],
     objective: (json['objective'] as num).toDouble(),
-    precision: (json['precision'] as num).toDouble(),
-    guidanceText: json['guidanceText'],
-    angleHistory:
-        (json['angleHistory'] as List?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        [],
-    painHistory:
-        (json['painHistory'] as List?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        [],
-    painLevel: json['painLevel'] != null
-        ? (json['painLevel'] as num).toDouble()
-        : null,
+    precision: (json['precision'] as num?)?.toDouble() ?? 0.0,
+    guidanceText: json['guidanceText'] ?? '',
+    angleHistory: (json['angleHistory'] as List?)?.map((e) => (e as num).toDouble()).toList() ?? <double>[],
+    painHistory: (json['painHistory'] as List?)?.map((e) => (e as num).toDouble()).toList() ?? <double>[],
+    painLevel: json['painLevel'] != null ? (json['painLevel'] as num).toDouble() : null,
     date: DateTime.parse(json['date']),
-    sessionFrames:
-        (json['sessionFrames'] as List?)?.map((e) => e as String).toList() ??
-        [],
+    sessionFrames: (json['sessionFrames'] as List?)?.map((e) => e as String).toList() ?? <String>[],
     trunkLeanAngle: (json['trunkLeanAngle'] ?? 0.0).toDouble(),
     signedTrunkLean: (json['signedTrunkLean'] ?? 0.0).toDouble(),
     elbowFlexion: (json['elbowFlexion'] ?? 180.0).toDouble(),
@@ -140,5 +148,9 @@ class IATrackingData {
     maxTrunkLean: (json['maxTrunkLean'] ?? 0.0).toDouble(),
     minElbowFlexion: (json['minElbowFlexion'] ?? 180.0).toDouble(),
     avgShoulderImbalance: (json['avgShoulderImbalance'] ?? 0.0).toDouble(),
+    selectedView: CameraView.values[json['selectedView'] ?? 0],
+    isHealthy: json['isHealthy'] ?? false,
+    side: json['side'] ?? "Gauche",
+    remarks: (json['remarks'] as List?)?.map((e) => e as String).toList() ?? <String>[],
   );
 }

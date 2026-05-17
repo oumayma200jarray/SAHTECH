@@ -29,6 +29,9 @@ class ContentModel {
   /// Type d'exercice (ex: "rotation", "flexion", "abduction")
   final String? exerciseType;
 
+  /// Vue caméra requise (ex: "face", "profil")
+  final String? requiredView;
+
   /// Constructeur principal
   ContentModel({
     required this.id,
@@ -40,6 +43,7 @@ class ContentModel {
     this.author,
     this.duration,
     this.exerciseType,
+    this.requiredView,
   });
 
   /// Méthode (factory) pour créer une instance de [ContentModel] à partir d'un objet JSON.
@@ -57,6 +61,7 @@ class ContentModel {
       author: json['author'],
       duration: json['duration'],
       exerciseType: json['exerciseType'],
+      requiredView: json['requiredView'],
     );
   }
 }

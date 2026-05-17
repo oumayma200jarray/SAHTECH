@@ -1,18 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
-import 'package:sahtek/core/widgets/video_player_widget.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 
 class PreparationTestIAPage extends StatefulWidget {
-  const PreparationTestIAPage({Key? key}) : super(key: key);
+  const PreparationTestIAPage({super.key});
 
   @override
   State<PreparationTestIAPage> createState() => _PreparationTestIAPageState();
 }
 
 class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
+  VideoPlayerController? _videoPlayerController;
+  ChewieController? _chewieController;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  void _initializeVideo() {
+    final provider = Provider.of<GlobalDataProvider>(context, listen: false);
+    final exercise = provider.selectedExercise;
+    if (exercise?.videoUrl != null && exercise!.videoUrl!.isNotEmpty) {
+      _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(exercise.videoUrl!));
+      _videoPlayerController!.initialize().then((_) {
+        setState(() {
+          _chewieController = ChewieController(
+            videoPlayerController: _videoPlayerController!,
+            autoPlay: false,
+            looping: true,
+            aspectRatio: _videoPlayerController!.value.aspectRatio,
+            placeholder: Container(color: Colors.black),
+            materialProgressColors: ChewieProgressColors(
+              playedColor: const Color(0xFF0D54F2),
+              handleColor: const Color(0xFF0D54F2),
+              backgroundColor: Colors.grey,
+              bufferedColor: Colors.white.withOpacity(0.5),
+            ),
+          );
+        });
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoPlayerController?.dispose();
+    _chewieController?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<GlobalDataProvider>(context);
+    final exercise = provider.selectedExercise;
+    final isProfil = exercise?.requiredView == 'profil';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -33,11 +79,7 @@ class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
         ),
         title: Text(
           'Préparation du Test IA',
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.grey[400], fontSize: 14, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -47,17 +89,10 @@ class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-            const Center(
+            Center(
               child: Text(
-                // ÉTAPE 0 : Conditionnement de l'environnement de capture (Dataset source)
-                // L'utilisateur positionne l'appareil pour garantir le minimum de bruit (Outliers) dans l'acquisition
-                // Cela aide le modèle de vision par ordinateur à avoir un meilleur contraste et une détection précise des landmarks
-                'Préparez votre espace',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E1E1E),
-                ),
+                exercise?.title ?? 'Préparez votre espace',
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1E1E1E)),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -66,132 +101,138 @@ class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
-                  "Suivez ces étapes pour assurer une analyse précise de vos mouvements par l'IA.",
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
+                  "Suivez les instructions ci-dessous pour garantir la précision de l'analyse biomécanique.",
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14, height: 1.5),
                   textAlign: TextAlign.center,
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // Étapes
+            // Video Demo Section
+            if (_chewieController != null && _chewieController!.videoPlayerController.value.isInitialized)
+              Container(
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.black,
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Chewie(controller: _chewieController!),
+                ),
+              )
+            else
+              Container(
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0D54F2)),
+                    SizedBox(height: 16),
+                    Text("Chargement de la démo...", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ),
+            
+            const SizedBox(height: 28),
+
+            // Camera positioning banner
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isProfil 
+                    ? [const Color(0xFF7C3AED), const Color(0xFFA78BFA)] // Purple for profile
+                    : [const Color(0xFF0D54F2), const Color(0xFF4C8FFF)], // Blue for face
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isProfil ? Icons.person_outline : Icons.face_retouching_natural, 
+                      color: Colors.white, 
+                      size: 22
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isProfil ? 'Position de PROFIL requise' : 'Position de FACE requise',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isProfil 
+                            ? 'Placez le téléphone sur le côté pour voir votre profil.'
+                            : 'Placez le téléphone face à vous pour voir tout votre corps.',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             _buildStepTile(
               icon: Icons.phone_android,
-              title: "Positionnement du téléphone",
-              description: "Positionnez votre téléphone à hauteur de poitrine sur une surface stable.",
+              title: "Positionnez le téléphone",
+              description: "À hauteur de poitrine, sur une surface stable.",
             ),
             const SizedBox(height: 12),
             _buildStepTile(
               icon: Icons.accessibility_new,
               title: "Recul utilisateur",
-              description: "Reculez de 2 mètres, positionnez-vous de profil face à la caméra.",
-            ),
-            const SizedBox(height: 32),
-
-            // Image d'illustration (Positionnement)
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
-                image: const DecorationImage(
-                  image: AssetImage('lib/assets/images/prep_illustration.png'),
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Section Démo
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "DÉMONSTRATION DU MOUVEMENT",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[400],
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D54F2).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    "Guide Vidéo",
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF0D54F2),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+              description: "Reculez de 2 mètres pour que votre corps soit entièrement visible.",
             ),
             const SizedBox(height: 12),
-            Consumer<GlobalDataProvider>(
-              builder: (context, provider, _) {
-                // ÉTAPE 1 : Chargement Dynamique de la démonstration
-                // On récupère l'url vidéo correspondant au mouvement attendu
-                final videoUrl = provider.selectedExercise?.videoUrl;
-                return Container(
-                  height: 200,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: (videoUrl != null && videoUrl.isNotEmpty)
-                        ? VideoPlayerWidget(
-                            videoUrl: videoUrl,
-                            autoPlay: true,
-                            looping: true,
-                            showControls: false,
-                          )
-                        : const Center(
-                            child: Icon(Icons.videocam_off, size: 48, color: Colors.grey),
-                          ),
-                  ),
-                );
-              },
+            _buildStepTile(
+              icon: Icons.auto_awesome,
+              title: "Analyse Intelligente",
+              description: "L'IA validera votre position (Vue de ${isProfil ? 'Profil' : 'Face'}) avant de commencer.",
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
 
-            // Bouton
+            // Bouton démarrer
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, '/suivi_ia_direct'),
+                onPressed: () {
+                  Navigator.pushReplacementNamed(context, '/suivi_ia_direct');
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0D54F2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Démarrer le test",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      'Démarrer le test',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(width: 8),
                     Icon(Icons.play_arrow, color: Colors.white),
@@ -203,10 +244,7 @@ class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
             const Center(
               child: Text(
                 "L'analyse commencera après un compte à rebours de 3 secondes",
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ),
             const SizedBox(height: 48),
@@ -216,7 +254,11 @@ class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
     );
   }
 
-  Widget _buildStepTile({required IconData icon, required String title, required String description}) {
+  Widget _buildStepTile({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -264,3 +306,4 @@ class _PreparationTestIAPageState extends State<PreparationTestIAPage> {
     );
   }
 }
+

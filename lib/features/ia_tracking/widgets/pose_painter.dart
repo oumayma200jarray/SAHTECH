@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sahtek/models/ia_tracking_model.dart';
 import 'package:sahtek/models/pose_model.dart';
 
 class PosePainter extends CustomPainter {
@@ -9,6 +10,11 @@ class PosePainter extends CustomPainter {
   final bool? isLeftArmActive;
   final double currentAngle;
 
+  final CameraView? selectedView;
+  final String exerciseId;
+
+  bool? isLeftSideVisible;
+
   PosePainter(
     this.poses,
     this.imageSize,
@@ -16,135 +22,370 @@ class PosePainter extends CustomPainter {
     this.isFrontCamera = false,
     this.isLeftArmActive,
     this.currentAngle = 0.0,
+    this.selectedView,
+    this.isLeftSideVisible,
+    this.exerciseId = '',
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Colors for Premium Clinical Design
+    const Color neonJointColor = Color(0xFF4ADE80); // Vibrant Green
+    const Color activeJointColor = Color(0xFF0D54F2); // Sahtech Blue
+    const Color skeletonColor = Colors.white;
+
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0
-      ..color = Colors.white70;
+      ..strokeWidth = 2.0
+      ..color = skeletonColor.withAlpha(180);
 
     final activePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8.0
+      ..strokeWidth = 5.0
       ..strokeCap = StrokeCap.round
-      ..shader = const LinearGradient(
-        colors: [Color(0xFF0D54F2), Color(0xFF4ADE80)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+      ..color = activeJointColor;
 
-    final inactivePaint = Paint()
+    final activeGlowPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..color = Colors.white24;
+      ..strokeWidth = 10.0
+      ..strokeCap = StrokeCap.round
+      ..color = activeJointColor.withOpacity(0.3)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    final neonPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = neonJointColor;
 
     for (final pose in poses) {
-      // 1. Ligne de référence verticale (Spine Alignment)
-      // Senior AI: On utilise les hanches si possible, sinon les épaules comme repli
-      final lHip = pose.landmarks[PoseLandmarkType.leftHip];
-      final rHip = pose.landmarks[PoseLandmarkType.rightHip];
-      final lSh = pose.landmarks[PoseLandmarkType.leftShoulder];
-      final rSh = pose.landmarks[PoseLandmarkType.rightShoulder];
-      
-      double? midX;
-      if (lHip != null && rHip != null) {
-        midX = (lHip.x + rHip.x) / 2;
-      } else if (lSh != null && rSh != null) {
-        midX = (lSh.x + rSh.x) / 2;
-      }
+      _drawGuidanceZones(canvas, size);
 
-      if (midX != null) {
-        final translatedMidX = _translateX(midX, rotation, size, imageSize);
+      // 0. Side Locking Logic (Profile View)
+      final bool? leftSideLocked = isLeftSideVisible;
+
+      // 1. Draw Skeleton Lines
+      void paintLine(PoseLandmarkType type1, PoseLandmarkType type2, Paint p, {bool forceDisplay = false}) {
+        final landmark1 = pose.landmarks[type1];
+        final landmark2 = pose.landmarks[type2];
+
+        if (landmark1 == null ||
+            landmark2 == null ||
+            landmark1.likelihood < 0.35 ||
+            landmark2.likelihood < 0.35)
+          return;
+
+        // --- Fit-to-Aspect Scaling for Lines ---
+        final double scaleX =
+            rotation == InputImageRotation.rotation90deg ||
+                rotation == InputImageRotation.rotation270deg
+            ? size.width / imageSize.height
+            : size.width / imageSize.width;
+        final double scaleY =
+            rotation == InputImageRotation.rotation90deg ||
+                rotation == InputImageRotation.rotation270deg
+            ? size.height / imageSize.width
+            : size.height / imageSize.height;
+
+        // Profile Filtering: Surgical Isolation (SKIP for active/forced lines)
+        if (!forceDisplay && selectedView == CameraView.profile && leftSideLocked != null) {
+          final bool connIsLeft =
+              type1.name.contains('left') || type2.name.contains('left');
+          final bool connIsRight =
+              type1.name.contains('right') || type2.name.contains('right');
+
+          if (leftSideLocked! && connIsRight && !connIsLeft) return;
+          if (!leftSideLocked! && connIsLeft && !connIsRight) return;
+
+          if (connIsLeft && connIsRight) return;
+        }
+
         canvas.drawLine(
-          Offset(translatedMidX, 0),
-          Offset(translatedMidX, size.height),
-          Paint()
-            ..color = Colors.white.withOpacity(0.15)
-            ..strokeWidth = 1.0
-            ..style = PaintingStyle.stroke,
+          Offset(
+            isFrontCamera
+                ? size.width - (landmark1.x * scaleX)
+                : landmark1.x * scaleX,
+            landmark1.y * scaleY,
+          ),
+          Offset(
+            isFrontCamera
+                ? size.width - (landmark2.x * scaleX)
+                : landmark2.x * scaleX,
+            landmark2.y * scaleY,
+          ),
+          p,
         );
       }
 
-      // 2. Dessiner les connexions (Squelette)
-      void paintLine(
-        PoseLandmarkType type1,
-        PoseLandmarkType type2,
-        Paint p, {
-        bool isAxis = false,
-      }) {
-        final landmark1 = pose.landmarks[type1];
-        final landmark2 = pose.landmarks[type2];
-        if (landmark1 != null &&
-            landmark2 != null &&
-            landmark1.likelihood >= 0.1 &&
-            landmark2.likelihood >= 0.1) {
-          canvas.drawLine(
-            Offset(
-              _translateX(landmark1.x, rotation, size, imageSize),
-              _translateY(landmark1.y, rotation, size, imageSize),
-            ),
-            Offset(
-              _translateX(landmark2.x, rotation, size, imageSize),
-              _translateY(landmark2.y, rotation, size, imageSize),
-            ),
-            p,
-          );
+      // Draw all connections with consistent visibility
+      final List<List<PoseLandmarkType>> connections = [
+        [PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder],
+        [PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip],
+        [PoseLandmarkType.rightShoulder, PoseLandmarkType.rightHip],
+        [PoseLandmarkType.leftHip, PoseLandmarkType.rightHip],
+        [PoseLandmarkType.leftShoulder, PoseLandmarkType.leftElbow],
+        [PoseLandmarkType.leftElbow, PoseLandmarkType.leftWrist],
+        [PoseLandmarkType.rightShoulder, PoseLandmarkType.rightElbow],
+        [PoseLandmarkType.rightElbow, PoseLandmarkType.rightWrist],
+        [PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee],
+        [PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle],
+        [PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee],
+        [PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle],
+        // Face connections for better orientation
+        [PoseLandmarkType.leftEar, PoseLandmarkType.leftEye],
+        [PoseLandmarkType.rightEar, PoseLandmarkType.rightEye],
+        [PoseLandmarkType.leftEye, PoseLandmarkType.nose],
+        [PoseLandmarkType.rightEye, PoseLandmarkType.nose],
+      ];
+
+      for (final conn in connections) {
+        bool isActive = false;
+        if (isLeftArmActive != null) {
+          // Seules les connexions du BRAS doivent être en bleu (pas le tronc, pas le visage, pas les jambes)
+          final bool isArmConnection = 
+              (conn[0].name.contains('Shoulder') && conn[1].name.contains('Elbow')) ||
+              (conn[0].name.contains('Elbow') && conn[1].name.contains('Shoulder')) ||
+              (conn[0].name.contains('Elbow') && conn[1].name.contains('Wrist')) ||
+              (conn[0].name.contains('Wrist') && conn[1].name.contains('Elbow'));
+          
+          if (isArmConnection) {
+            final String targetSide = isLeftArmActive! ? 'left' : 'right';
+            // Only highlight if BOTH ends of the segment are on the active side
+            // and have high confidence
+            final p1 = pose.landmarks[conn[0]];
+            final p2 = pose.landmarks[conn[1]];
+            if (p1 != null && p2 != null && p1.likelihood > 0.5 && p2.likelihood > 0.5) {
+              if (conn[0].name.toLowerCase().startsWith(targetSide) && 
+                  conn[1].name.toLowerCase().startsWith(targetSide)) {
+                isActive = true;
+              }
+            }
+          }
+        }
+
+        // Priority: Always draw active limb connections to prevent flickering
+        if (isActive) {
+          paintLine(conn[0], conn[1], activeGlowPaint, forceDisplay: true);
+          paintLine(conn[0], conn[1], activePaint, forceDisplay: true);
+          continue;
+        }
+
+        // --- View Filtering Logic (for non-active segments) ---
+        bool shouldDraw = true;
+        if (selectedView == CameraView.profile) {
+          final bool connIsLeft = conn[0].name.contains('left') || conn[1].name.contains('left');
+          final bool connIsRight = conn[0].name.contains('right') || conn[1].name.contains('right');
+          
+          // Hide connections that cross the trunk in profile (Shoulder-Shoulder, Hip-Hip)
+          if ((conn[0].name.contains('Shoulder') && conn[1].name.contains('Shoulder')) ||
+              (conn[0].name.contains('Hip') && conn[1].name.contains('Hip'))) {
+            shouldDraw = false;
+          } else {
+            // Depth filtering for trunk segments
+            final p1 = pose.landmarks[conn[0]];
+            final p2 = pose.landmarks[conn[1]];
+            if (p1 != null && p2 != null) {
+              final otherS1Type = connIsLeft ? PoseLandmarkType.rightShoulder : PoseLandmarkType.leftShoulder;
+              final otherS1 = pose.landmarks[otherS1Type];
+              if (otherS1 != null && p1.z > otherS1.z + 25 && p2.z > otherS1.z + 25) {
+                shouldDraw = false;
+              }
+            }
+          }
+        }
+
+        if (shouldDraw) {
+          paintLine(conn[0], conn[1], paint);
         }
       }
 
-      // Bras Gauche
-      final Paint lArmPaint = (isLeftArmActive == true) ? activePaint : inactivePaint;
-      paintLine(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftElbow, lArmPaint);
-      paintLine(PoseLandmarkType.leftElbow, PoseLandmarkType.leftWrist, lArmPaint);
-
-      // Bras Droit
-      final Paint rArmPaint = (isLeftArmActive == false) ? activePaint : inactivePaint;
-      paintLine(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightElbow, rArmPaint);
-      paintLine(PoseLandmarkType.rightElbow, PoseLandmarkType.rightWrist, rArmPaint);
-
-      // Tronc et Épaules
-      paintLine(PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder, paint);
-      paintLine(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip, paint);
-      paintLine(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightHip, paint);
-      paintLine(PoseLandmarkType.leftHip, PoseLandmarkType.rightHip, paint);
-
-      // 3. Dessiner les Articulations (Glow effect)
+      // 2. Draw Joints (Circles with Glow)
       pose.landmarks.forEach((type, landmark) {
-        if (landmark.likelihood < 0.1) return;
+        // --- Fit-to-Aspect Calculation ---
+        final double scaleX =
+            rotation == InputImageRotation.rotation90deg ||
+                rotation == InputImageRotation.rotation270deg
+            ? size.width / imageSize.height
+            : size.width / imageSize.width;
+        final double scaleY =
+            rotation == InputImageRotation.rotation90deg ||
+                rotation == InputImageRotation.rotation270deg
+            ? size.height / imageSize.width
+            : size.height / imageSize.height;
 
         final offset = Offset(
-          _translateX(landmark.x, rotation, size, imageSize),
-          _translateY(landmark.y, rotation, size, imageSize),
+          isFrontCamera
+              ? size.width - (landmark.x * scaleX)
+              : landmark.x * scaleX,
+          landmark.y * scaleY,
         );
 
-        // Glow
-        canvas.drawCircle(
-          offset,
-          8.0,
-          Paint()
-            ..color = (isLeftArmActive != null && type.name.contains(isLeftArmActive! ? 'left' : 'right'))
-                ? const Color(0xFF0D54F2).withOpacity(0.3)
-                : Colors.white10
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-        );
+        bool isActive = false;
+        final bool isArmJoint = type.name.contains('Shoulder') || type.name.contains('Elbow') || type.name.contains('Wrist');
+        if (isLeftArmActive != null && isArmJoint && landmark.likelihood > 0.5) {
+          final String targetSide = isLeftArmActive! ? 'left' : 'right';
+          if (type.name.toLowerCase().startsWith(targetSide)) isActive = true;
+        }
 
-        // Joint Point
+        // --- Joint Filtering Logic (Confidence & Profile Depth) ---
+        if (landmark.likelihood < 0.35) return;
+        
+        bool shouldDrawJoint = true;
+        if (selectedView == CameraView.profile) {
+          // In profile, we prioritize the "locked" side
+          // If not locked, we hide joints that are too far in the background (Z)
+          final bool isLeftJoint = type.name.contains('left');
+          final bool isRightJoint = type.name.contains('right');
+
+          if (leftSideLocked != null) {
+            if (leftSideLocked! && isRightJoint) shouldDrawJoint = false;
+            if (!leftSideLocked! && isLeftJoint) shouldDrawJoint = false;
+          } else {
+            // Dynamic depth filtering: hide joints that are too far in the background (Z)
+            // This prevents the "double line" effect before a side is locked.
+            final PoseLandmarkType otherType;
+            if (isLeftJoint) {
+               otherType = PoseLandmarkType.rightShoulder; // Approximation for trunk
+            } else if (isRightJoint) {
+               otherType = PoseLandmarkType.leftShoulder;
+            } else {
+               otherType = type;
+            }
+            
+            final otherLandmark = pose.landmarks[otherType];
+            if (otherLandmark != null && landmark.z > otherLandmark.z + 15) {
+              shouldDrawJoint = false;
+            }
+          }
+        }
+
+        if (!shouldDrawJoint) return;
+
+        // Core Point (Sharp & Vibrant Green like clinical reference)
         canvas.drawCircle(
           offset,
-          4.0,
+          isActive ? 8.0 : 5.0,
           Paint()
-            ..color = (isLeftArmActive != null && type.name.contains(isLeftArmActive! ? 'left' : 'right'))
-                ? const Color(0xFF0D54F2)
-                : Colors.white
+            ..color = neonJointColor
             ..style = PaintingStyle.fill,
         );
 
-        // 4. Étiquette d'Angle (Uniquement pour l'épaule active)
-        if ((isLeftArmActive == true && type == PoseLandmarkType.leftShoulder) ||
-            (isLeftArmActive == false && type == PoseLandmarkType.rightShoulder)) {
+        // Pivot Indicator for Rotation
+        if (isActive && type.name.contains('Elbow')) {
+          canvas.drawCircle(
+            offset,
+            12.0,
+            Paint()
+              ..color = Colors.white.withOpacity(0.5)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5,
+          );
+        }
+
+        // Active Indicator (Blue ring for active joints)
+        if (isActive) {
+          canvas.drawCircle(
+            offset,
+            8.0,
+            Paint()
+              ..color = activeJointColor
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.0,
+          );
+        }
+
+        // 3. Angle Label & Reference Axis
+        bool showAtThisJoint = false;
+        if (exerciseId.contains('rotation')) {
+          showAtThisJoint = (type == PoseLandmarkType.leftElbow || type == PoseLandmarkType.rightElbow);
+        } else {
+          showAtThisJoint = (type == PoseLandmarkType.leftShoulder || type == PoseLandmarkType.rightShoulder);
+        }
+
+        if (isActive && showAtThisJoint) {
           _drawAngleLabel(canvas, offset, currentAngle);
+          _drawReferenceAxis(canvas, offset, size);
         }
       });
+    }
+  }
+
+  void _drawReferenceAxis(Canvas canvas, Offset shoulderPos, Size size) {
+    final refPaint = Paint()
+      ..color = const Color(0xFF0D54F2).withOpacity(0.8) // High visibility blue
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+
+    // Draw vertical reference line (0 degree axis) - LONGER for better visibility
+    canvas.drawLine(
+      shoulderPos,
+      Offset(shoulderPos.dx, shoulderPos.dy + 300),
+      refPaint,
+    );
+    
+    // Draw a small horizontal cross-line at the shoulder to form a "Goniometer" look
+    // This might be the "horizontal line" the user mentioned, now it's part of a clear design
+    canvas.drawLine(
+      Offset(shoulderPos.dx - 20, shoulderPos.dy),
+      Offset(shoulderPos.dx + 20, shoulderPos.dy),
+      refPaint,
+    );
+
+    // Add a professional clinical label
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: "AXE REF 0°",
+        style: TextStyle(
+          color: const Color(0xFF0D54F2).withOpacity(0.9),
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset(shoulderPos.dx - 25, shoulderPos.dy + 305));
+  }
+
+  void _drawGuidanceZones(Canvas canvas, Size size) {
+    final double zoneHeight = size.height / 3;
+    final paintLine = Paint()
+      ..color = Colors.white.withAlpha(51)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final String viewSuffix = selectedView == CameraView.profile
+        ? " (PROFIL)"
+        : selectedView == CameraView.back
+        ? " (DOS)"
+        : " (FACE)";
+    final List<String> labels = [
+      "ZONE SUPÉRIEURE$viewSuffix",
+      "ZONE MÉDIANE$viewSuffix",
+      "ZONE INFÉRIEURE$viewSuffix",
+    ];
+
+    for (int i = 0; i < 3; i++) {
+      final double top = i * zoneHeight;
+
+      // Ligne séparatrice
+      if (i > 0) {
+        canvas.drawLine(Offset(0, top), Offset(size.width, top), paintLine);
+      }
+
+      // Étiquette de zone
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: labels[i],
+          style: TextStyle(
+            color: Colors.white.withAlpha(77),
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(20, top + 10));
     }
   }
 

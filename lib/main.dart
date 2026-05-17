@@ -13,6 +13,7 @@ import 'package:sahtek/features/auth/screens/inscription.dart';
 import 'package:sahtek/features/auth/screens/OtpVerificationPage.dart';
 import 'package:sahtek/features/content_library/screens/localisation_douleur.dart';
 import 'package:sahtek/features/home/screens/accueil.dart';
+import 'package:sahtek/features/ia_tracking/presentation/state/tracking_notifier.dart';
 import 'package:sahtek/features/ia_tracking/screens/selection_test_ia.dart';
 import 'package:sahtek/features/ia_tracking/screens/preparation_test_ia.dart';
 import 'package:sahtek/features/content_library/screens/exercices_zone.dart';
@@ -114,11 +115,11 @@ class MyApp extends StatelessWidget {
         '/inscription': (context) => Inscription(),
         '/otp-verification': (context) => const OtpVerificationPage(),
         '/accueil': (context) => AccueilPage(),
-        '/selection_test_ia': (context) => SelectionTestIAPage(),
-        '/preparation_test_ia': (context) => PreparationTestIAPage(),
+        '/selection_test_ia': (context) => TrackingNotifier.provide(child: const SelectionTestIAPage()),
+        '/preparation_test_ia': (context) => TrackingNotifier.provide(child: const PreparationTestIAPage()),
         '/localisation_douleur': (context) => LocalisationDouleurPage(),
         '/exercices_zone': (context) => ExercicesZonePage(),
-        '/resultat_test_ia': (context) => ResultatsTestIAPage(),
+        '/resultat_test_ia': (context) => TrackingNotifier.provide(child: const ResultatsTestIAPage()),
         '/trouver_specialiste': (context) => TrouverSpecialistePage(),
         '/reserver_rdv': (context) => ReserverRDVPage(),
         '/mes_rdv': (context) => const MesRdvPage(),
@@ -134,7 +135,7 @@ class MyApp extends StatelessWidget {
         '/change-password': (context) => const ChangePasswordPage(),
         '/security_privacy': (context) => const SecurityPrivacyPage(),
         '/notifications': (context) => const NotificationsPage(),
-        '/suivi_ia_direct': (context) => const SuiviIADirectPage(),
+        '/suivi_ia_direct': (context) => TrackingNotifier.provide(child: const SuiviIADirectPage()),
         '/gestion_disponibilites': (context) =>
             RoleGuard(child: const GestionDisponibilitesPage()),
         '/specialiste_details': (context) => const SpecialisteDetailsPage(),
