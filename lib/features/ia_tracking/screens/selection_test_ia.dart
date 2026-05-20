@@ -103,7 +103,7 @@ class _SelectionTestIAPageState extends State<SelectionTestIAPage> {
         'id': 'ia_rotation_interne',
         'title': 'Rotation interne',
         'plan': 'PLAN TRANSVERSAL',
-        'requiredView': 'profil',
+        'requiredView': 'face',
         'description':
             'Tourner l’avant-bras vers l’intérieur. Maintenir le coude collé au corps. Éviter les mouvements rapides.',
         'icon': Icons.sync_alt,

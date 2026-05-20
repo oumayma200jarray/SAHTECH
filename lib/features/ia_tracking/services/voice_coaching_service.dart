@@ -72,21 +72,45 @@ class VoiceCoachingService {
     return "$name $instruction L'IA analyse votre posture.";
   }
 
+  double getObjectiveFor(String exerciseId) {
+    final id = exerciseId.toLowerCase();
+    if (id.contains('flexion')) return 180.0;
+    if (id.contains('abduction')) return 180.0;
+    if (id.contains('rotation_externe')) return 70.0;
+    if (id.contains('rotation_interne')) return 30.0;
+    if (id.contains('extension')) return 50.0;
+    if (id.contains('adduction')) return 30.0;
+    return 180.0;
+  }
+
   Future<void> speakFeedback({
     required String exerciseId,
     required double angle,
     String? message,
   }) async {
+    final objective = getObjectiveFor(exerciseId);
+    final int roundedAngle = angle.toInt();
+    final int roundedObjective = objective.toInt();
+
+    // 1. Si le patient a atteint ou dépassé l'amplitude cible idéale (ex: >= 95% de l'objectif)
+    if (angle >= (objective - 5.0)) {
+      final successMsg = "Excellent ! Bravo, vous avez atteint l'amplitude idéale de $roundedObjective degrés ! Vous pouvez relâcher.";
+      await speak(successMsg, force: true);
+      return;
+    }
+
+    // 2. Si un message d'erreur/avertissement de posture est fourni (ex: buste penche)
     if (message != null && message.isNotEmpty) {
-      // Only speak if it's a warning, and not an "Excellent" message too often
       await speak(message);
-    } else {
-      // Periodic encouragement
-      if (angle > 150) {
-        await speak("Excellent ! Belle amplitude.");
-      } else if (angle > 90 && angle < 95) {
-        await speak("Continuez, c'est bien.");
-      }
+      return;
+    }
+
+    // 3. Encouragement périodique selon la progression
+    final progress = angle / objective;
+    if (progress >= 0.5 && progress < 0.6) {
+      await speak("Continuez, c'est bien. Allez-y doucement.");
+    } else if (progress >= 0.75 && progress < 0.85) {
+      await speak("Encore un peu, vous y êtes presque.");
     }
   }
 

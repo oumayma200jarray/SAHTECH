@@ -12,24 +12,38 @@ class ResultatsTestIAPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<GlobalDataProvider>(context);
     final lastResult = provider.lastTrackingResult;
-    
     if (lastResult == null) {
       return Scaffold(body: Center(child: Text('no_content_available'.tr())));
     }
+
+    final String patientName = provider.profile.fullName.isNotEmpty
+        ? provider.profile.fullName
+        : "Patient";
 
     // --- DATA EXTRACTION ---
     final List<Map<String, dynamic>> movements = [
       {'id': 'flexion', 'name': 'Flexion Antérieure', 'max': 180.0, 'unit': '°'},
       {'id': 'abduction', 'name': 'Abduction', 'max': 180.0, 'unit': '°'},
-      {'id': 'rotation_externe', 'name': 'Rotation Externe', 'max': 90.0, 'unit': '°'},
-      {'id': 'extension', 'name': 'Extension', 'max': 60.0, 'unit': '°'},
-      {'id': 'adduction', 'name': 'Adduction', 'max': 45.0, 'unit': '°'},
-      {'id': 'rotation_interne', 'name': 'Rotation Interne', 'max': 70.0, 'unit': '°'},
+      {'id': 'rotation_externe', 'name': 'Rotation Externe', 'max': 70.0, 'unit': '°'},
+      {'id': 'extension', 'name': 'Extension', 'max': 50.0, 'unit': '°'},
+      {'id': 'adduction', 'name': 'Adduction', 'max': 30.0, 'unit': '°'},
+      {'id': 'rotation_interne', 'name': 'Rotation Interne', 'max': 30.0, 'unit': '°'},
     ];
 
     final List<Map<String, dynamic>> analysisData = movements.map((m) {
-      final healthy = (provider.getValueForSide(m['id'], healthy: true) ?? 0.0).toDouble();
-      final patho = (provider.getValueForSide(m['id'], healthy: false) ?? 0.0).toDouble();
+      final gauche = (provider.getValueForSide(m['id'], healthy: true) ?? 0.0).toDouble(); // healthy:true = Gauche
+      final droite = (provider.getValueForSide(m['id'], healthy: false) ?? 0.0).toDouble(); // healthy:false = Droite
+      
+      // Le ROM (Range of Motion) est l'angle le plus grand (max) entre les deux épaules testées.
+      // Le déficit représente l'angle le plus faible (min) entre les deux.
+      double romVal = 0.0;
+      double deficitVal = 0.0;
+      if (gauche > 0 || droite > 0) {
+        romVal = (gauche > droite) ? gauche : droite;
+        deficitVal = (gauche > 0 && droite > 0) 
+            ? ((gauche < droite) ? gauche : droite) 
+            : (gauche > 0 ? gauche : droite);
+      }
       
       // Récupérer la valeur de la séance PRÉCÉDENTE pour ce même exercice
       final prevValue = (provider.getPreviousSessionValue('ia_shoulder_${m['id']}') ?? 
@@ -37,25 +51,26 @@ class ResultatsTestIAPage extends StatelessWidget {
                         provider.getPreviousSessionValue(m['id']) ?? 0.0).toDouble();
       
       // Delta = valeur actuelle - valeur précédente
-      // Uniquement si on a fait l'exercice aujourd'hui (patho > 0) et qu'on a une valeur précédente
-      final delta = (prevValue > 0 && patho > 0) ? (patho - prevValue) : 0.0;
+      final delta = (prevValue > 0 && romVal > 0) ? (romVal - prevValue) : 0.0;
       
       return {
         ...m,
-        'healthy': healthy,
-        'patho': patho,
+        'gauche': gauche,
+        'droite': droite,
+        'rom': romVal,
+        'deficit': deficitVal,
         'delta': delta,
       };
-    }).where((m) => (m['patho'] as num) > 0).toList();
+    }).toList();
 
     // Calculate Global Score (only for performed exercises)
     double totalMobility = 0;
     int performedCount = 0;
     for (var m in analysisData) {
       final double maxVal = (m['max'] as num).toDouble();
-      final double pathoVal = (m['patho'] as num).toDouble();
-      if (maxVal > 0 && pathoVal > 0) {
-        totalMobility += (pathoVal / maxVal) * 100;
+      final double romVal = (m['rom'] as num).toDouble();
+      if (maxVal > 0 && romVal > 0) {
+        totalMobility += (romVal / maxVal) * 100;
         performedCount++;
       }
     }
@@ -72,7 +87,7 @@ class ResultatsTestIAPage extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            _buildHeader(lastResult),
+            _buildHeader(lastResult, patientName),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Column(
@@ -89,6 +104,8 @@ class ResultatsTestIAPage extends StatelessWidget {
                   _buildCorrelationCard(analysisData, painLevel),
                   const SizedBox(height: 32),
                   _buildGlobalRecoveryGauge(recoveryScore, globalMobility, painLevel),
+                  const SizedBox(height: 32),
+                  _buildConclusionCard(globalMobility, painLevel, lastResult.avgShoulderImbalance),
                   const SizedBox(height: 40),
                   _buildNewSessionButton(context),
                   const SizedBox(height: 60),
@@ -118,18 +135,15 @@ class ResultatsTestIAPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text("SAHTECH", style: TextStyle(color: Color(0xFF0D54F2), fontWeight: FontWeight.w900, fontSize: 14)),
-              Text("Dossier Médical", style: TextStyle(color: Color(0xFF1E293B), fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
         ],
       ),
-      actions: [
-        IconButton(icon: const Icon(Icons.settings_outlined, color: Color(0xFF1E293B)), onPressed: () {}),
-      ],
+     
     );
   }
 
-  Widget _buildHeader(IATrackingData result) {
+  Widget _buildHeader(IATrackingData result, String patientName) {
     return Container(
       width: double.infinity,
       color: Colors.white,
@@ -137,11 +151,10 @@ class ResultatsTestIAPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("MOTEUR DE DIAGNOSTIC IA V4.3", style: TextStyle(color: Color(0xFF0D54F2), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-          const SizedBox(height: 8),
-          const Text("Résultat de\nPerformance IA", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Color(0xFF1E293B), height: 1.1)),
+        
+          const Text("Résultat de\nl'Analyse IA", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Color(0xFF1E293B), height: 1.1)),
           const SizedBox(height: 12),
-          Text("Analyse biomécanique avancée et corrélation neurale pour la rééducation de l'épaule.\nPatient : Jean-Dominique Morel", style: TextStyle(color: Color(0xFF64748B), fontSize: 13, height: 1.5)),
+          Text("Analyse biomécanique avancée et corrélation neurale pour la rééducation de l'épaule.\nPatient : $patientName", style: TextStyle(color: Color(0xFF64748B), fontSize: 13, height: 1.5)),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -194,7 +207,7 @@ class ResultatsTestIAPage extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 24),
             child: _buildClinicalProgressBar(
               m['name'].toString(), 
-              (m['patho'] as num).toDouble(), 
+              (m['rom'] as num).toDouble(), 
               (m['max'] as num).toDouble(), 
               (m['delta'] as num).toDouble(),
             ),
@@ -244,95 +257,117 @@ class ResultatsTestIAPage extends StatelessWidget {
 
   Widget _buildDeficitIndicator(List<Map<String, dynamic>> data) {
     if (data.isEmpty) return const SizedBox.shrink();
-    // Detect largest deficit
-    var worstMove = data.first;
-    double maxDeficit = 0;
-    for (var m in data) {
-      double deficit = ((m['healthy'] as num) - (m['patho'] as num)).clamp(0.0, 500.0).toDouble();
-      if (deficit > maxDeficit) {
-        maxDeficit = deficit;
-        worstMove = m;
-      }
-    }
-
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(color: const Color(0xFFF1F5FF), borderRadius: BorderRadius.circular(24)),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.analytics_outlined, color: Color(0xFF0D54F2), size: 24),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.analytics_outlined, color: Color(0xFF0D54F2), size: 24),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text("Cartographie des Déficits (6 Mouvements)", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Indicateur de Déficit", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                const SizedBox(height: 4),
-                Text(
-                  "Zone de restriction détectée en fin de course d'${worstMove['name']} (${worstMove['patho'].toInt()}° - ${worstMove['max'].toInt()}°).",
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 16),
+          ...data.map((m) {
+            final String name = m['name'].toString();
+            final double gauche = (m['gauche'] as num).toDouble();
+            final double droite = (m['droite'] as num).toDouble();
+            final double rom = (m['rom'] as num).toDouble();
+            final double max = (m['max'] as num).toDouble();
+            
+            final double deficit = max - rom;
+            
+            String statusText = "";
+            Color statusColor = const Color(0xFF10B981);
+            
+            if (gauche == 0 && droite == 0) {
+              statusText = "Non évalué";
+              statusColor = Colors.grey;
+            } else if (deficit > 15.0) {
+              statusText = "Déficit important : -${deficit.toInt()}° [Actuel : ${rom.toInt()}°]";
+              statusColor = const Color(0xFFEF4444);
+            } else if (deficit > 5.0) {
+              statusText = "Déficit léger : -${deficit.toInt()}° [Actuel : ${rom.toInt()}°]";
+              statusColor = const Color(0xFFF59E0B);
+            } else {
+              statusText = "Mobilité normale [Actuel : ${rom.toInt()}°]";
+              statusColor = const Color(0xFF10B981);
+            }
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.circle, size: 8, color: statusColor),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+                        children: [
+                          TextSpan(text: "$name : ", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                          TextSpan(text: statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
         ],
       ),
     );
   }
 
-  Widget _buildQualitySection(IATrackingData result) {
-    // ── Contrôle Moteur : score composite sur 4 critères cliniques
-    // 1. Posture générale correcte (booléen IA)
-    // 2. Coude étendu pendant le geste (flexion minimale ≥ 160°)
-    // 3. Précision du mouvement (champ 'precision' 0-1, seuil > 0.65)
-    // 4. Déséquilibre scapulaire faible pendant le geste (< 10°)
-    int motorScore = 0;
-    if (result.isPostureCorrect) motorScore++;
-    if (result.minElbowFlexion >= 160.0) motorScore++;
-    if (result.precision > 0.65) motorScore++;
-    if (result.avgShoulderImbalance < 10.0) motorScore++;
 
+
+  Widget _buildQualitySection(IATrackingData result) {
+    // ── Contrôle Moteur (Stabilité et fluidité)
     final String motorStatus;
     final Color motorColor;
     final String motorSub;
-    if (motorScore == 4) {
+    if (result.precision >= 0.85) {
       motorStatus = "EXCELLENT";
       motorColor = const Color(0xFF10B981);
-      motorSub = "Contrôle neuro-moteur optimal (4/4 critères validés)";
-    } else if (motorScore == 3) {
+      motorSub = "Exécution fluide et trajectoire parfaitement maîtrisée. Précision motrice de ${(result.precision * 100).toInt()}%.";
+    } else if (result.precision >= 0.65) {
       motorStatus = "BON";
       motorColor = const Color(0xFF10B981);
-      motorSub = "Contrôle satisfaisant (${motorScore}/4) — légères irrégularités";
-    } else if (motorScore == 2) {
-      motorStatus = "MODÉRÉ";
-      motorColor = const Color(0xFFF59E0B);
-      motorSub = "Contrôle partiel (${motorScore}/4) — coude: ${result.minElbowFlexion.toInt()}°, précision: ${(result.precision * 100).toInt()}%";
+      motorSub = "Contrôle satisfaisant avec de légères irrégularités (Précision: ${(result.precision * 100).toInt()}%).";
     } else {
-      motorStatus = "INSUFFISANT";
+      motorStatus = "INSTABLE";
       motorColor = const Color(0xFFEF4444);
-      motorSub = "Contrôle insuffisant (${motorScore}/4) — réévaluation recommandée";
+      motorSub = "Mouvement saccadé ou instable. Le coude a fléchi à ${result.minElbowFlexion.toInt()}° (norme > 160°). Un travail de stabilité neuromusculaire est requis.";
     }
 
-    // ── Compensations : basé sur l'inclinaison du tronc
+    // ── Compensations (Triche articulaire)
     final bool hasCompensation = result.avgTrunkLean.abs() > 8.0;
     final String compSub = hasCompensation
-        ? "Inclinaison du tronc détectée : ${result.avgTrunkLean.toStringAsFixed(1)}° (norme < 8°)"
-        : "Aucune compensation significative observée";
-    final String compStatus = hasCompensation ? "MODÉRÉ" : "NORMAL";
+        ? "Triche biomécanique : Inclinaison du tronc de ${result.avgTrunkLean.toStringAsFixed(1)}° (norme < 8°) pour compenser le manque d'amplitude de l'épaule."
+        : "Excellente posture axiale. Aucune compensation significative observée durant l'effort.";
+    final String compStatus = hasCompensation ? "COMPENSÉ" : "NORMAL";
     final Color compColor = hasCompensation ? const Color(0xFFF59E0B) : const Color(0xFF10B981);
 
-    // ── Dyskinesie Scapulaire : basé sur le déséquilibre des épaules
+    // ── Pathologies Dynamiques (Dyskinesie Scapulaire)
     final bool hasDyskinesia = result.avgShoulderImbalance > 12.0;
     final String dysSub = hasDyskinesia
-        ? "Asymétrie scapulaire de ${result.avgShoulderImbalance.toStringAsFixed(1)}° — pattern anormal"
-        : "Symétrie scapulaire dans les normes (${result.avgShoulderImbalance.toStringAsFixed(1)}°)";
+        ? "Déséquilibre scapulaire sévère (Asymétrie de ${result.avgShoulderImbalance.toStringAsFixed(1)}%). Signe probable de Dyskinésie nécessitant un travail de recentrage articulaire."
+        : "Rythme scapulo-huméral respecté. Symétrie scapulaire dynamique dans les normes (${result.avgShoulderImbalance.toStringAsFixed(1)}%).";
     final String dysStatus = hasDyskinesia ? "DÉPISTÉ" : "NORMAL";
-    final Color dysColor = hasDyskinesia ? const Color(0xFF0D54F2) : const Color(0xFF10B981);
+    final Color dysColor = hasDyskinesia ? const Color(0xFFEF4444) : const Color(0xFF10B981);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,17 +408,26 @@ class ResultatsTestIAPage extends StatelessWidget {
   }
 
   Widget _buildSymmetryScore(List<Map<String, dynamic>> data) {
-    if (data.isEmpty) return const SizedBox.shrink();
-    // Average healthy vs patho
-    double avgHealthy = 0;
-    double avgPatho = 0;
-    for (var m in data) {
-      avgHealthy += m['healthy'];
-      avgPatho += m['patho'];
+    final testedData = data.where((m) => (m['rom'] as num) > 0).toList();
+    if (testedData.isEmpty) return const SizedBox.shrink();
+    // Average gauche vs droite
+    double avgGauche = 0;
+    double avgDroite = 0;
+    for (var m in testedData) {
+      avgGauche += m['gauche'];
+      avgDroite += m['droite'];
     }
-    avgHealthy /= data.length;
-    avgPatho /= data.length;
-    final int score = avgHealthy > 0 ? (avgPatho / avgHealthy * 100).clamp(0, 100).toInt() : 0;
+    avgGauche /= testedData.length;
+    avgDroite /= testedData.length;
+    
+    // On calcule la symétrie absolue (le plus faible par rapport au plus fort)
+    final double maxVal = (avgGauche > avgDroite) ? avgGauche : avgDroite;
+    final double minVal = (avgGauche < avgDroite) ? avgGauche : avgDroite;
+    final int score = maxVal > 0 ? (minVal / maxVal * 100).clamp(0, 100).toInt() : 0;
+    
+    // Barres : on normalise par rapport à la valeur max globale
+    final double leftRatio = maxVal > 0 ? (avgGauche / maxVal) : 0.0;
+    final double rightRatio = maxVal > 0 ? (avgDroite / maxVal) : 0.0;
 
     return Container(
       width: double.infinity,
@@ -397,8 +441,8 @@ class ResultatsTestIAPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _buildSymmetryBar("GAUCHE (SAIN)", 0.95),
-              _buildSymmetryBar("DROITE (PATHO)", avgHealthy > 0 ? (avgPatho / avgHealthy) : 0.0),
+              _buildSymmetryBar("GAUCHE", leftRatio),
+              _buildSymmetryBar("DROITE", rightRatio),
             ],
           ),
           const SizedBox(height: 32),
@@ -432,7 +476,7 @@ class ResultatsTestIAPage extends StatelessWidget {
     final flexion = data.firstWhere((element) => element['id'] == 'flexion', orElse: () => data.first);
     final double gain = (flexion['delta'] as num).toDouble();
     final String exerciseName = flexion['name'].toString();
-    final double flexionPatho = (flexion['patho'] as num).toDouble();
+    final double flexionRom = (flexion['rom'] as num).toDouble();
 
     // Génère un titre et un texte analytique basés sur les vraies données
     final bool improving = gain > 0;
@@ -442,7 +486,7 @@ class ResultatsTestIAPage extends StatelessWidget {
         : "Maintien de l'amplitude — travail de consolidation";
     final String correlationBody = gain != 0
         ? "L'analyse croisée indique un ${improving ? 'gain' : 'déficit'} de ${gain.abs().toInt()}° en $exerciseName "
-          "(amplitude actuelle : ${flexionPatho.toInt()}°). "
+          "(amplitude actuelle : ${flexionRom.toInt()}°). "
           "${hasPain ? 'La douleur rapportée (${pain.toStringAsFixed(1)}/10) indique une sensibilisation périphérique résiduelle. Un travail de désensibilisation progressive est recommandé.' 
           : 'Absence de douleur significative (${pain.toStringAsFixed(1)}/10) — tolérance tissulaire satisfaisante. Progression vers des amplitudes plus élevées possible.'}"
         : "Première séance enregistrée. Les prochaines sessions permettront de calculer votre courbe de progression personnalisée.";
@@ -533,8 +577,8 @@ class ResultatsTestIAPage extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _metricSummary("MOBILITÉ", "${mobility.toInt()}%"),
-              _metricSummary("DOULEUR", "${(pain * 10).toInt()}%", color: const Color(0xFFEF4444)),
+              _metricSummary("MOBILITÉ GLOBALE", "${mobility.toInt()}%"),
+              _metricSummary("SCORE DE DOULEUR", "${(pain * 10).toInt()}%", color: const Color(0xFFEF4444)),
             ],
           ),
         ],
@@ -559,6 +603,75 @@ class ResultatsTestIAPage extends StatelessWidget {
         children: [
           Text(val, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0D54F2))),
           Text(sub, style: const TextStyle(fontSize: 6, fontWeight: FontWeight.bold, color: Color(0xFF0D54F2))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConclusionCard(double mobility, double pain, double imbalance) {
+    String diag = "";
+    String spec = "";
+
+    if (mobility < 50 && pain > 5) {
+      diag = "Suspicion de Capsulite Rétractile (Épaule gelée) ou lésion sévère de la coiffe des rotateurs.";
+      spec = "Chirurgien Orthopédiste ou Rhumatologue";
+    } else if (imbalance > 12.0) {
+      diag = "Dyskinésie Scapulaire avérée avec potentielle instabilité articulaire périphérique.";
+      spec = "Kinésithérapeute (Spécialisé en Biomécanique)";
+    } else if (mobility < 80 && pain > 3) {
+      diag = "Suspicion de Tendinopathie (coiffe des rotateurs) ou conflit sous-acromial modéré.";
+      spec = "Médecin du Sport ou Kinésithérapeute";
+    } else if (pain > 5) {
+      diag = "Douleur aiguë sans blocage articulaire majeur. Possible inflammation ou bursite.";
+      spec = "Médecin Généraliste ou Rhumatologue";
+    } else {
+      diag = "Mobilité fonctionnelle globale conservée. Possible déficit de contrôle moteur ou tension musculaire bénigne.";
+      spec = "Kinésithérapeute (Renforcement) ou Ostéopathe";
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5FF),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: const Color(0xFF0D54F2).withOpacity(0.1), width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(color: Color(0xFF0D54F2), shape: BoxShape.circle),
+                child: const Icon(Icons.medical_services_outlined, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text("CONCLUSION & ORIENTATION", style: TextStyle(color: Color(0xFF0D54F2), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text("Diagnostic IA Possible", style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(diag, style: const TextStyle(color: Color(0xFF1E293B), fontSize: 14, fontWeight: FontWeight.bold, height: 1.4)),
+          const SizedBox(height: 24),
+          Container(height: 1, color: const Color(0xFF0D54F2).withOpacity(0.1)),
+          const SizedBox(height: 24),
+          const Text("Spécialité Recommandée", style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.arrow_forward_rounded, color: Color(0xFF0D54F2), size: 16),
+              const SizedBox(width: 8),
+              Expanded(child: Text(spec, style: const TextStyle(color: Color(0xFF0D54F2), fontSize: 14, fontWeight: FontWeight.w900))),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            "* L'analyse SAHTECH est fournie à titre indicatif et ne remplace en aucun cas un diagnostic médical officiel effectué par un professionnel de la santé.",
+            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 9, fontStyle: FontStyle.italic),
+          ),
         ],
       ),
     );

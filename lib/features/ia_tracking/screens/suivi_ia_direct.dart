@@ -37,7 +37,7 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
 
   DateTime _lastAICallTime = DateTime.fromMillisecondsSinceEpoch(0);
   static const int _kAIFeedbackCooldownSec = 10;
-  bool _isHealthySide = false;
+  bool _isLeftSide = true;
 
   @override
   void initState() {
@@ -163,6 +163,9 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
       return;
     }
 
+    // Ne pas déclencher de remarques vocales si le patient n'a pas encore commencé ou vient juste de démarrer
+    if (notifier.state == TrackingState.waiting || notifier.totalFrames < 30) return;
+
     final result = notifier.lastResult;
     if (result != null && result.remarks.isNotEmpty) {
       final firstWarning = result.remarks.firstWhere(
@@ -221,27 +224,27 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setState(() => _isHealthySide = true),
+                            onTap: () => setState(() => _isLeftSide = true),
                             child: Container(
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: _isHealthySide ? const Color(0xFF10B981) : Colors.transparent,
+                                color: _isLeftSide ? const Color(0xFF0D54F2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Text("SAIN", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                              child: const Text("GAUCHE", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setState(() => _isHealthySide = false),
+                            onTap: () => setState(() => _isLeftSide = false),
                             child: Container(
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: !_isHealthySide ? const Color(0xFFEF4444) : Colors.transparent,
+                                color: !_isLeftSide ? const Color(0xFF0D54F2) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Text("PATHO", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                              child: const Text("DROITE", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ),
@@ -370,15 +373,19 @@ class _SuiviIADirectPageState extends State<SuiviIADirectPage>
         rightValue: notifier.maxRightAngle,
         unit: "°",
         objective: 180,
-        precision: 90.0,
+        precision: notifier.precision,
         guidanceText: "Test terminé",
         date: DateTime.now(),
         trunkLeanAngle: result.trunkLean,
         elbowFlexion: result.elbowFlexion,
         isPostureCorrect: result.isPostureCorrect,
         selectedView: notifier.detectedView,
-        isHealthy: _isHealthySide,
-        side: _isHealthySide ? "Sain" : "Pathologique",
+        isHealthy: _isLeftSide,
+        side: _isLeftSide ? "Gauche" : "Droite",
+        avgTrunkLean: notifier.avgTrunkLean,
+        maxTrunkLean: notifier.maxTrunkLean,
+        minElbowFlexion: notifier.minElbowFlexion,
+        avgShoulderImbalance: notifier.avgShoulderImbalance,
       );
 
       provider.saveIATrackingResult(finalData);

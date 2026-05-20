@@ -38,8 +38,10 @@ class ProcessPoseUseCase {
     final lWP = lW != null ? math.Point(lW.x, lW.y) : lEP;
     final rWP = rW != null ? math.Point(rW.x, rW.y) : rEP;
 
-    final double lAngle = BiomechanicsUtils.calculateAnatomicalAngle(lSP, lHP, lEP);
-    final double rAngle = BiomechanicsUtils.calculateAnatomicalAngle(rSP, rHP, rEP);
+    // Utilisation du poignet (WP) au lieu du coude (EP) pour l'angle anatomique global
+    // Cela permet d'atteindre les 180° quand le bras est complètement levé (le coude est parfois mal détecté en hauteur maximale)
+    final double lAngle = BiomechanicsUtils.calculateAnatomicalAngle(lSP, lHP, lWP);
+    final double rAngle = BiomechanicsUtils.calculateAnatomicalAngle(rSP, rHP, rWP);
 
     // 1. Initial Locking (if null)
     if (_isLeftArmActive == null) {
@@ -109,33 +111,74 @@ class ProcessPoseUseCase {
         ? BiomechanicsUtils.calculateAngle2D(lSP, lEP, lWP)
         : BiomechanicsUtils.calculateAngle2D(rSP, rEP, rWP);
 
+    double finalLeftAngle = lAngle;
+    double finalRightAngle = rAngle;
     double angle = isL ? lAngle : rAngle;
     double elevationAngle = isL ? lAngle : rAngle;
+    bool? isCorrectDirection;
 
     if (exerciseId.contains('rotation')) {
-      final activeS = isL ? lS : rS;
-      final activeE = isL ? lE : rE;
-      final activeW = isL ? lW : rW;
-      if (activeS != null && activeE != null && activeW != null) {
-        // Forearm vector in 3D
-        final dx = activeW.x - activeE.x;
-        final dy = activeW.y - activeE.y;
-        final dz = activeW.z - activeE.z;
-        final dist = math.sqrt(dx * dx + dy * dy + dz * dz);
+      // Calcul 2D de la rotation basé sur la proportion de distance coude-poignet
+      double computeRotation2D(math.Point s, math.Point e, math.Point w, bool isInternal, bool isLeft) {
+        // Distance épaule-coude pour estimer la longueur de l'avant-bras
+        double L = math.sqrt((e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y));
+        if (L < 10) L = 100.0; // Marge de sécurité
         
-        if (dist > 0) {
-          // Neutral position is hand pointing towards camera (Z negative in ML Kit)
-          // Angle is between (dx, dy, dz) and (0, 0, -dist)
-          // cos(theta) = dot_product / (dist1 * dist2)
-          // dot_product = (dx*0 + dy*0 + dz*-dist) = -dz * dist
-          // cos(theta) = -dz / dist
-          double cosTheta = (-dz / dist).clamp(-1.0, 1.0);
-          angle = math.acos(cosTheta) * 180 / math.pi;
-          
-          // Offset to start from 0 and handle noise
-          if (angle < 10) angle = 0;
-          else angle -= 10;
+        // L'avant-bras représente environ 68% de la longueur de l'humérus (L)
+        double L_forearm = L * 0.68;
+        
+        num dx_outward = isLeft ? (w.x - e.x) : (e.x - w.x);
+        num dx_inward = -dx_outward;
+        
+        if (isInternal) {
+          // Angle d'entrée vers le buste
+          double ratio = (dx_inward / L_forearm).clamp(-1.0, 1.0);
+          double angle = math.asin(ratio) * 180.0 / math.pi;
+          return angle > 0 ? angle.clamp(0.0, 90.0) : 0.0;
+        } else {
+          // Angle de sortie vers l'extérieur
+          double ratio = (dx_outward / L_forearm).clamp(-1.0, 1.0);
+          double angle = math.asin(ratio) * 180.0 / math.pi;
+          return angle > 0 ? angle.clamp(0.0, 90.0) : 0.0;
         }
+      }
+
+      bool isInternal = exerciseId.contains('rotation_interne');
+      double lRot = 0.0, rRot = 0.0;
+      
+      if (isInternal) {
+        lRot = computeRotation2D(lSP, lEP, lWP, true, true);
+        rRot = computeRotation2D(rSP, rEP, rWP, true, false);
+      } else {
+        // Ancienne logique 3D pour la rotation externe (comme demandée par l'utilisateur)
+        if (lE != null && lW != null) {
+          final dx = lW.x - lE.x, dy = lW.y - lE.y, dz = lW.z - lE.z;
+          final dist = math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (dist > 0) lRot = math.acos((-dz / dist).clamp(-1.0, 1.0)) * 180 / math.pi - 10;
+        }
+        if (rE != null && rW != null) {
+          final dx = rW.x - rE.x, dy = rW.y - rE.y, dz = rW.z - rE.z;
+          final dist = math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (dist > 0) rRot = math.acos((-dz / dist).clamp(-1.0, 1.0)) * 180 / math.pi - 10;
+        }
+      }
+      
+      finalLeftAngle = lRot.clamp(0.0, 180.0);
+      finalRightAngle = rRot.clamp(0.0, 180.0);
+      angle = isL ? finalLeftAngle : finalRightAngle;
+      
+    } else if (exerciseId.contains('adduction')) {
+      // Adduction : le bras croise le buste
+      // Bras gauche croise -> le coude va vers la gauche de l'écran -> lEP.x < lSP.x
+      // Bras droit croise -> le coude va vers la droite de l'écran -> rEP.x > rSP.x
+      isCorrectDirection = isL ? (lEP.x < lSP.x) : (rEP.x > rSP.x);
+      
+      if (isL) {
+        finalLeftAngle = isCorrectDirection! ? lAngle : 0.0;
+        angle = finalLeftAngle;
+      } else {
+        finalRightAngle = isCorrectDirection! ? rAngle : 0.0;
+        angle = finalRightAngle;
       }
     }
 
@@ -164,14 +207,15 @@ class ProcessPoseUseCase {
       angle: angle,
       elevationAngle: elevationAngle,
       isArmForward: isArmForward,
+      isCorrectDirection: isCorrectDirection,
     );
 
     final bool isPostureCorrect = !remarks.any((r) => r.severity == RemarkSeverity.warning);
 
     return MovementResult(
       angle: angle,
-      leftAngle: lAngle,
-      rightAngle: rAngle,
+      leftAngle: finalLeftAngle,
+      rightAngle: finalRightAngle,
       isPostureCorrect: isPostureCorrect,
       trunkLean: trunkLean,
       shoulderImbalance: shoulderImbalance,

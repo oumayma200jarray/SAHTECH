@@ -237,6 +237,7 @@ class GlobalDataProvider extends ChangeNotifier {
   Future<void> _loadTrackingHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final String? encodedData = prefs.getString('ia_tracking_history');
+    final String? token = prefs.getString('accessToken');
 
     if (encodedData != null) {
       final List<dynamic> decodedData = json.decode(encodedData);
@@ -244,8 +245,8 @@ class GlobalDataProvider extends ChangeNotifier {
       _trackingHistory.addAll(
         decodedData.map<IATrackingData>((e) => IATrackingData.fromJson(e)).toList(),
       );
-    } else {
-      // Données mockées initiales avec IDs corrects pour l'analyse
+    } else if (token == null) {
+      // Données mockées initiales avec IDs corrects pour l'analyse (seulement si non connecté)
       final now = DateTime.now();
       _trackingHistory.addAll([
         // --- SESSION 1 (Il y a 7 jours) ---
@@ -523,19 +524,31 @@ class GlobalDataProvider extends ChangeNotifier {
   // Récupérer la valeur pour un exercice et un côté spécifique (Sain ou Patho)
   double? getValueForSide(String baseId, {required bool healthy}) {
     try {
+      // Obtenir la dernière session pour cet exercice
       final results = _trackingHistory
-          .where(
-            (e) =>
-                (e.exerciseId?.contains(baseId) ?? false) &&
-                e.isHealthy == healthy,
-          )
+          .where((e) => e.exerciseId?.contains(baseId) ?? false)
           .toList();
+          
       if (results.isNotEmpty) {
-        return results.last.currentValue;
+        final last = results.last;
+        // Si la session contient les deux valeurs (nouveau système)
+        if (last.leftValue > 0 || last.rightValue > 0) {
+          return healthy ? last.leftValue : last.rightValue;
+        } else {
+          // Ancien système (une session = un bras)
+          final oldResults = _trackingHistory.where(
+            (e) => (e.exerciseId?.contains(baseId) ?? false) && e.isHealthy == healthy
+          ).toList();
+          if (oldResults.isNotEmpty) return oldResults.last.currentValue;
+        }
       }
     } catch (e) {
       debugPrint("Error fetching value for $baseId (healthy: $healthy): $e");
     }
     return null;
+  }
+
+  Future<void> refreshHistory() async {
+    await _loadTrackingHistory();
   }
 }

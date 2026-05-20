@@ -11,7 +11,7 @@ class IATrackingData {
   double rightValue;
   final String unit;
   final double objective;
-  final double precision;
+  double precision;
   String guidanceText;
   final List<double> angleHistory;
   final List<double> painHistory;

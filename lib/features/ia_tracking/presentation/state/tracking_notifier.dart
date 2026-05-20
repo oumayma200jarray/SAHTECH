@@ -119,6 +119,26 @@ class TrackingNotifier extends ChangeNotifier {
   CameraView _requiredView = CameraView.front;
   CameraView get requiredView => _requiredView;
 
+  // Session Statistics (Quality & Compensation)
+  int _totalFrames = 0;
+  int _badPostureFrames = 0;
+  
+  double _sessionTrunkSum = 0.0;
+  int _sessionTrunkCount = 0;
+  
+  double _sessionShoulderSum = 0.0;
+  int _sessionShoulderCount = 0;
+  
+  double _minElbowFlexionSession = 180.0;
+  double _maxTrunkLeanSession = 0.0;
+
+  int get totalFrames => _totalFrames;
+  double get precision => _totalFrames > 0 ? (1.0 - (_badPostureFrames / _totalFrames)) * 100 : 0.0;
+  double get avgTrunkLean => _sessionTrunkCount > 0 ? _sessionTrunkSum / _sessionTrunkCount : 0.0;
+  double get avgShoulderImbalance => _sessionShoulderCount > 0 ? _sessionShoulderSum / _sessionShoulderCount : 0.0;
+  double get minElbowFlexion => _minElbowFlexionSession;
+  double get maxTrunkLean => _maxTrunkLeanSession;
+
   String _exerciseId = "";
   String get exerciseId => _exerciseId;
   double _objective = 180.0;
@@ -154,6 +174,17 @@ class TrackingNotifier extends ChangeNotifier {
     _rightArmEvaluated = false;
     _wasAboveThreshold = false;
     _currentlyActiveIsLeft = null;
+    
+    // Reset Session Stats
+    _totalFrames = 0;
+    _badPostureFrames = 0;
+    _sessionTrunkSum = 0.0;
+    _sessionTrunkCount = 0;
+    _sessionShoulderSum = 0.0;
+    _sessionShoulderCount = 0;
+    _minElbowFlexionSession = 180.0;
+    _maxTrunkLeanSession = 0.0;
+
     _processPoseUseCase.resetSide();
     _angleFilter.filter(0);
     notifyListeners();
@@ -225,16 +256,35 @@ class TrackingNotifier extends ChangeNotifier {
       _maxAngle = _maxLeftAngle > _maxRightAngle ? _maxLeftAngle : _maxRightAngle;
     }
 
-    _updateState(result.angle);
+    _updateState(result);
     notifyListeners();
   }
 
-  void _updateState(double currentAngle) {
+  void _updateState(MovementResult result) {
+    final double currentAngle = result.angle;
+
     if (_state == TrackingState.waiting && currentAngle > 15.0 && isViewCorrect) {
       _state = TrackingState.inProgress;
     }
 
     if (_state == TrackingState.inProgress) {
+      // Accumulate session stats
+      _totalFrames++;
+      if (!result.isPostureCorrect) {
+        _badPostureFrames++;
+      }
+      
+      final absTrunkLean = result.trunkLean.abs();
+      _sessionTrunkSum += absTrunkLean;
+      _sessionTrunkCount++;
+      if (absTrunkLean > _maxTrunkLeanSession) _maxTrunkLeanSession = absTrunkLean;
+      
+      _sessionShoulderSum += result.shoulderImbalance;
+      _sessionShoulderCount++;
+      
+      if (result.elbowFlexion < _minElbowFlexionSession) {
+        _minElbowFlexionSession = result.elbowFlexion;
+      }
       final isLeft = _lastResult?.isLeftArmActive;
 
       if (isLeft != null) {
@@ -245,12 +295,12 @@ class TrackingNotifier extends ChangeNotifier {
           _wasAboveThreshold = false;
         }
 
-        if (currentAngle > 20.0) {
+        if (currentAngle > 35.0) {
           _wasAboveThreshold = true;
           _currentlyActiveIsLeft = isLeft;
         }
 
-        if (_wasAboveThreshold && currentAngle < 15.0) {
+        if (_wasAboveThreshold && currentAngle < 20.0) {
           if (_currentlyActiveIsLeft == true) {
             _leftArmEvaluated = true;
           } else if (_currentlyActiveIsLeft == false) {

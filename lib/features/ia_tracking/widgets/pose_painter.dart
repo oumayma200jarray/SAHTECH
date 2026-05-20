@@ -308,41 +308,68 @@ class PosePainter extends CustomPainter {
     }
   }
 
-  void _drawReferenceAxis(Canvas canvas, Offset shoulderPos, Size size) {
+  void _drawReferenceAxis(Canvas canvas, Offset jointPos, Size size) {
     final refPaint = Paint()
       ..color = const Color(0xFF0D54F2).withOpacity(0.8) // High visibility blue
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke;
 
-    // Draw vertical reference line (0 degree axis) - LONGER for better visibility
-    canvas.drawLine(
-      shoulderPos,
-      Offset(shoulderPos.dx, shoulderPos.dy + 300),
-      refPaint,
-    );
-    
-    // Draw a small horizontal cross-line at the shoulder to form a "Goniometer" look
-    // This might be the "horizontal line" the user mentioned, now it's part of a clear design
-    canvas.drawLine(
-      Offset(shoulderPos.dx - 20, shoulderPos.dy),
-      Offset(shoulderPos.dx + 20, shoulderPos.dy),
-      refPaint,
-    );
+    if (exerciseId.contains('rotation')) {
+      // Rotation : Axe de référence horizontal (0°)
+      canvas.drawLine(
+        Offset(jointPos.dx - 150, jointPos.dy),
+        Offset(jointPos.dx + 150, jointPos.dy),
+        refPaint,
+      );
 
-    // Add a professional clinical label
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: "AXE REF 0°",
-        style: TextStyle(
-          color: const Color(0xFF0D54F2).withOpacity(0.9),
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
+      // Croisillon au niveau du coude
+      canvas.drawLine(
+        Offset(jointPos.dx, jointPos.dy - 20),
+        Offset(jointPos.dx, jointPos.dy + 20),
+        refPaint,
+      );
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: "AXE REF 0°",
+          style: TextStyle(
+            color: const Color(0xFF0D54F2).withOpacity(0.9),
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(canvas, Offset(shoulderPos.dx - 25, shoulderPos.dy + 305));
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(jointPos.dx + 50, jointPos.dy + 10));
+    } else {
+      // Autres exercices (ex: Abduction, Flexion) : Axe de référence vertical (0° le long du corps)
+      canvas.drawLine(
+        jointPos,
+        Offset(jointPos.dx, jointPos.dy + 300),
+        refPaint,
+      );
+      
+      canvas.drawLine(
+        Offset(jointPos.dx - 20, jointPos.dy),
+        Offset(jointPos.dx + 20, jointPos.dy),
+        refPaint,
+      );
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: "AXE REF 0°",
+          style: TextStyle(
+            color: const Color(0xFF0D54F2).withOpacity(0.9),
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(jointPos.dx - 25, jointPos.dy + 305));
+    }
   }
 
   void _drawGuidanceZones(Canvas canvas, Size size) {

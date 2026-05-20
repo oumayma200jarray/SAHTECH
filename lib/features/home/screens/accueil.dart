@@ -30,6 +30,7 @@ class _AccueilPageState extends State<AccueilPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleNewGoogleUserFlow();
+      Provider.of<GlobalDataProvider>(context, listen: false).refreshHistory();
     });
     _loadFavoritePostIds();
     _loadRoleForModeToggle();

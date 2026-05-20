@@ -20,7 +20,12 @@ class TrackingController extends ChangeNotifier {
   bool get isComparisonCorrect => _isComparisonCorrect;
 
   double _calibratedRestAngle = 0.0;
+  double _calibratedTrunkLength = 0.0;
   bool _isCalibrated = false;
+
+  bool _isCountdownActive = false;
+  DateTime? _countdownStartTime;
+  int countdownValue = 3;
 
   double _smoothedAngle = 0.0;
   bool _hasSmoothedAngle = false;
@@ -51,16 +56,16 @@ class TrackingController extends ChangeNotifier {
   bool? get isLeftArmActive => _isLeftArmActive;
 
   // Filtres de lissage pour les landmarks clés (Senior AI Improvement)
-  // On réduit alpha pour plus de stabilité (0.55 -> 0.35)
+  // On augmente alpha (0.35 -> 0.75) pour réduire le ralentissement et rendre le suivi très réactif
   final Map<PoseLandmarkType, SmoothedPoint> _filters = {
-    PoseLandmarkType.leftShoulder: SmoothedPoint(alpha: 0.35),
-    PoseLandmarkType.rightShoulder: SmoothedPoint(alpha: 0.35),
-    PoseLandmarkType.leftElbow: SmoothedPoint(alpha: 0.35),
-    PoseLandmarkType.rightElbow: SmoothedPoint(alpha: 0.35),
-    PoseLandmarkType.leftWrist: SmoothedPoint(alpha: 0.35),
-    PoseLandmarkType.rightWrist: SmoothedPoint(alpha: 0.35),
-    PoseLandmarkType.leftHip: SmoothedPoint(alpha: 0.35),
-    PoseLandmarkType.rightHip: SmoothedPoint(alpha: 0.35),
+    PoseLandmarkType.leftShoulder: SmoothedPoint(alpha: 0.75),
+    PoseLandmarkType.rightShoulder: SmoothedPoint(alpha: 0.75),
+    PoseLandmarkType.leftElbow: SmoothedPoint(alpha: 0.75),
+    PoseLandmarkType.rightElbow: SmoothedPoint(alpha: 0.75),
+    PoseLandmarkType.leftWrist: SmoothedPoint(alpha: 0.75),
+    PoseLandmarkType.rightWrist: SmoothedPoint(alpha: 0.75),
+    PoseLandmarkType.leftHip: SmoothedPoint(alpha: 0.75),
+    PoseLandmarkType.rightHip: SmoothedPoint(alpha: 0.75),
   };
 
   static const double minConfidence = 0.45;
@@ -72,8 +77,12 @@ class TrackingController extends ChangeNotifier {
     _trackingData = data;
     _trackingData!.repetitionCount = 0; // Reset repetition count
     _state = TrackingState.waiting;
-    _feedbackMessage = "Mettez-vous en position initiale";
+    _feedbackMessage = "Placez-vous...";
     _isCalibrated = false;
+    _calibratedTrunkLength = 0.0;
+    _isCountdownActive = true;
+    _countdownStartTime = DateTime.now();
+    countdownValue = 3;
     _smoothedAngle = 0.0;
     _hasSmoothedAngle = false;
     _sessionAngleHistory.clear();
@@ -143,6 +152,31 @@ class TrackingController extends ChangeNotifier {
     final double midHipX = (lH.x + rH.x) / 2;
     final double midHipY = (lH.y + rH.y) / 2;
 
+    // Filtre de proximité (Zoom Tracker) - Taille du torse
+    final double trunkLength = _pointDistance(math.Point(midShoulderX, midShoulderY), math.Point(midHipX, midHipY));
+
+    // Le sas de préparation (3 secondes)
+    if (_isCountdownActive) {
+      if (_countdownStartTime != null) {
+        final int elapsed = DateTime.now().difference(_countdownStartTime!).inSeconds;
+        if (elapsed < 3) {
+          countdownValue = 3 - elapsed;
+          _feedbackMessage = "Placez-vous... $countdownValue";
+          notifyListeners();
+          return; // Ignore les frames pendant que le patient recule
+        } else {
+          _isCountdownActive = false;
+        }
+      }
+    }
+
+    // Bloquer les données polluées si le patient s'approche de l'écran pour appuyer sur Terminer
+    if (_isCalibrated && trunkLength > _calibratedTrunkLength * 1.25) {
+      _feedbackMessage = "Vous êtes trop près. Reculez.";
+      notifyListeners();
+      return; // Ignorer cette frame, évite les faux angles maximum
+    }
+
     // AXE DU TRONC (Le vrai "Dos Droit")
     // Angle entre l'axe vertical parfait et la ligne Milieu-Épaules -> Milieu-Hanches
     // positive = inclinaison à droite, negative = inclinaison à gauche
@@ -152,11 +186,15 @@ class TrackingController extends ChangeNotifier {
         math.pi;
     _trackingData!.trunkLeanAngle = trunkAngle.abs();
     _trackingData!.signedTrunkLean = trunkAngle; // Preserving the sign
-    if (trunkAngle.abs() > _maxTrunkLeanSession)
-      _maxTrunkLeanSession = trunkAngle.abs();
-    _sessionTrunkHistory.add(trunkAngle.abs());
-    if (_sessionTrunkHistory.length > 240) {
-      _sessionTrunkHistory.removeAt(0);
+    
+    if (_state == TrackingState.inProgress) {
+      if (trunkAngle.abs() > _maxTrunkLeanSession) {
+        _maxTrunkLeanSession = trunkAngle.abs();
+      }
+      _sessionTrunkHistory.add(trunkAngle.abs());
+      if (_sessionTrunkHistory.length > 240) {
+        _sessionTrunkHistory.removeAt(0);
+      }
     }
 
     // --- CALCUL BIOMÉCANIQUE ANATOMIQUE (Senior AI Architecture) ---
@@ -225,13 +263,15 @@ class TrackingController extends ChangeNotifier {
     double rawCurrentAngle = 0.0;
     final String exerciseId = _trackingData!.exerciseId ?? "";
 
-    if (exerciseId.contains('rotation')) {
-      // Formule spécifique pour la Rotation Externe (Plan Transversal)
+    if (exerciseId.contains('rotation_externe')) {
       rawCurrentAngle = _isLeftArmActive! 
-          ? _calculateExternalRotationAngle(lS as PoseLandmark, lE as PoseLandmark?, lW as PoseLandmark?)
-          : _calculateExternalRotationAngle(rS as PoseLandmark, rE as PoseLandmark?, rW as PoseLandmark?);
-    } else if (exerciseId.contains('abduction')) {
-      // Formule pour l'Abduction (Plan Frontal - Écartement latéral)
+          ? _calculateRotationAngle(lE, lW, false)
+          : _calculateRotationAngle(rE, rW, false);
+    } else if (exerciseId.contains('rotation_interne')) {
+      rawCurrentAngle = _isLeftArmActive! 
+          ? _calculateRotationAngle(lE, lW, true)
+          : _calculateRotationAngle(rE, rW, true);
+    } else if (exerciseId.contains('abduction') || exerciseId.contains('adduction')) {
       rawCurrentAngle = _isLeftArmActive! ? lAngle : rAngle;
     } else {
       // Formule par défaut pour la Flexion (Plan Sagittal - Élévation frontale)
@@ -257,9 +297,11 @@ class TrackingController extends ChangeNotifier {
           : 0.0;
     }
     _trackingData!.shoulderImbalance = shoulderImbalance;
-    _sessionShoulderImbalanceHistory.add(shoulderImbalance);
-    if (_sessionShoulderImbalanceHistory.length > 240) {
-      _sessionShoulderImbalanceHistory.removeAt(0);
+    if (_state == TrackingState.inProgress) {
+      _sessionShoulderImbalanceHistory.add(shoulderImbalance);
+      if (_sessionShoulderImbalanceHistory.length > 240) {
+        _sessionShoulderImbalanceHistory.removeAt(0);
+      }
     }
 
     double elbowFlex = 180.0;
@@ -269,12 +311,14 @@ class TrackingController extends ChangeNotifier {
       elbowFlex = _angle(rS, rE, rW);
     }
     _trackingData!.elbowFlexion = elbowFlex;
-    if (elbowFlex < _minElbowFlexionSession)
-      _minElbowFlexionSession = elbowFlex;
-
-    _sessionElbowHistory.add(elbowFlex);
-    if (_sessionElbowHistory.length > 240) {
-      _sessionElbowHistory.removeAt(0);
+    if (_state == TrackingState.inProgress) {
+      if (elbowFlex < _minElbowFlexionSession) {
+        _minElbowFlexionSession = elbowFlex;
+      }
+      _sessionElbowHistory.add(elbowFlex);
+      if (_sessionElbowHistory.length > 240) {
+        _sessionElbowHistory.removeAt(0);
+      }
     }
 
     final TrackingState previousState = _state;
@@ -282,19 +326,25 @@ class TrackingController extends ChangeNotifier {
 
     _isComparisonCorrect = true;
 
+    final bool isRotation = exerciseId.contains('rotation');
+
     // Échelonnage des priorités de feedback (Senior Level Architecture)
-    if (trunkAngle.abs() > 10.0) {
-      // Seuil ajusté pour éviter les corrections incessantes
+    if (trunkAngle.abs() > 15.0) {
+      // Tolérance augmentée à 15° pour éviter de boucler sur le dos
       _isComparisonCorrect = false;
       _feedbackMessage = trunkAngle > 0 
           ? "Stabilisez votre buste vers la droite" 
           : "Stabilisez votre buste vers la gauche";
-    } else if (_trackingData!.selectedView != CameraView.profile && currentAngle < 120.0 && shoulderImbalance > 25.0) {
+    } else if (_trackingData!.selectedView != CameraView.profile && currentAngle < 120.0 && shoulderImbalance > 35.0) {
+      // Tolérance d'asymétrie augmentée pour éviter les faux positifs (25 -> 35)
       _isComparisonCorrect = false;
       _feedbackMessage = "Relâchez vos épaules";
-    } else if (elbowFlex < 145.0) {
+    } else if (!isRotation && elbowFlex < 145.0) {
       _isComparisonCorrect = false;
       _feedbackMessage = "Maintenez le bras bien tendu";
+    } else if (isRotation && (elbowFlex < 70.0 || elbowFlex > 110.0)) {
+      _isComparisonCorrect = false;
+      _feedbackMessage = "Pliez le coude à 90 degrés";
     }
 
     _trackingData!.isPostureCorrect = _isComparisonCorrect;
@@ -307,10 +357,19 @@ class TrackingController extends ChangeNotifier {
       _bestValidAngle = currentAngle;
     }
 
+    double targetAngle = _trackingData!.objective - 8.0; // Fallback par défaut
+    if (exerciseId.contains('flexion')) targetAngle = 175.0; // 180 toléré
+    else if (exerciseId.contains('extension')) targetAngle = 45.0; // 45-50
+    else if (exerciseId.contains('abduction')) targetAngle = 175.0; // 180 toléré
+    else if (exerciseId.contains('adduction')) targetAngle = 30.0; // 30-45
+    else if (exerciseId.contains('rotation_externe')) targetAngle = 65.0; // 60-70
+    else if (exerciseId.contains('rotation_interne')) targetAngle = 25.0; // 20-30
+
     switch (_state) {
       case TrackingState.waiting:
         if (!_isCalibrated) {
           _calibratedRestAngle = currentAngle;
+          _calibratedTrunkLength = trunkLength; // Calibrage de la taille
           _isCalibrated = true;
         }
         if (currentAngle > _calibratedRestAngle + 12.0 || currentAngle > 20.0) {
@@ -323,14 +382,12 @@ class TrackingController extends ChangeNotifier {
         break;
 
       case TrackingState.inProgress:
-        if (currentAngle >= _trackingData!.objective - 8.0) {
+        if (currentAngle >= targetAngle) {
           _state = TrackingState.completed;
-          _feedbackMessage = _isComparisonCorrect
-              ? "Objectif atteint, redescendez doucement"
-              : _feedbackMessage;
+          _feedbackMessage = "Objectif atteint, redescendez doucement";
         } else {
           _feedbackMessage = _isComparisonCorrect
-              ? "Continuez l'élévation"
+              ? "Continuez le mouvement"
               : _feedbackMessage;
         }
         break;
@@ -350,17 +407,22 @@ class TrackingController extends ChangeNotifier {
     _trackingData!.guidanceText = _feedbackMessage;
  
     // Mise à jour des statistiques finales (Senior Analytics)
-    // Optimisation : On utilise des sommes cumulées pour rester en O(1) par frame.
     _trackingData!.maxTrunkLean = _maxTrunkLeanSession;
     _trackingData!.minElbowFlexion = _minElbowFlexionSession;
     
-    _sessionTrunkSum += trunkAngle.abs();
-    _sessionTrunkCount++;
-    _trackingData!.avgTrunkLean = _sessionTrunkSum / _sessionTrunkCount;
+    if (_state == TrackingState.inProgress) {
+      _sessionTrunkSum += trunkAngle.abs();
+      _sessionTrunkCount++;
+      _trackingData!.avgTrunkLean = _sessionTrunkSum / _sessionTrunkCount;
 
-    _sessionShoulderSum += shoulderImbalance;
-    _sessionShoulderCount++;
-    _trackingData!.avgShoulderImbalance = _sessionShoulderSum / _sessionShoulderCount;
+      _sessionShoulderSum += shoulderImbalance;
+      _sessionShoulderCount++;
+      _trackingData!.avgShoulderImbalance = _sessionShoulderSum / _sessionShoulderCount;
+    }
+    
+    if (_totalFrames > 0) {
+       _trackingData!.precision = 1.0 - (_badPostureFrames / _totalFrames);
+    }
 
     if (postureWasCorrect != _isComparisonCorrect || previousState != _state) {
       notifyListeners();
@@ -406,7 +468,7 @@ class TrackingController extends ChangeNotifier {
   }
 
   double _smoothAngle(double rawAngle) {
-    const double alpha = 0.60;
+    const double alpha = 0.85; // 0.85 au lieu de 0.60 pour accélérer la réactivité de l'angle
     if (!_hasSmoothedAngle) {
       _smoothedAngle = rawAngle;
       _hasSmoothedAngle = true;
@@ -426,27 +488,28 @@ class TrackingController extends ChangeNotifier {
     return _calculateAngle(hip, shoulder, distal);
   }
 
-  double _calculateExternalRotationAngle(
-    PoseLandmark shoulder,
-    PoseLandmark? elbow,
-    PoseLandmark? wrist,
+  double _calculateRotationAngle(
+    math.Point<double>? elbow,
+    math.Point<double>? wrist,
+    bool isInternal,
   ) {
     if (elbow == null || wrist == null) return 0.0;
 
-    final PoseLandmark verticalRef = PoseLandmark(
-      type: PoseLandmarkType.leftKnee,
-      x: elbow.x,
-      y: elbow.y + 100,
-      z: elbow.z,
-      likelihood: 1,
-    );
+    final double dx = (wrist.x - elbow.x).abs();
+    final double dy = elbow.y - wrist.y; // Positive = wrist is HIGHER than elbow
 
-    final double upperArmLength = _distance(shoulder, elbow);
-    final double forearmLength = _distance(elbow, wrist);
-    if (upperArmLength < 5 || forearmLength < 5) return 0.0;
+    if (dx == 0 && dy == 0) return 0.0;
 
-    final double angle = _calculateAngle(verticalRef, elbow, wrist);
-    return angle.clamp(0.0, 90.0);
+    final double angle = math.atan2(dy, dx) * 180.0 / math.pi;
+
+    if (isInternal) {
+      // Pour la rotation interne (mouvement vers le bas), dy est négatif, angle est négatif.
+      // On retourne la valeur absolue pour avoir une mesure positive (0 -> 70°)
+      return angle < 0 ? -angle : 0.0;
+    } else {
+      // Pour la rotation externe (mouvement vers le haut), dy est positif, angle est positif.
+      return angle > 0 ? angle : 0.0;
+    }
   }
 
   double _distance(PoseLandmark p1, PoseLandmark p2) {
