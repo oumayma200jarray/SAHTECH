@@ -43,11 +43,22 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
       }
       if (permission == LocationPermission.deniedForever) return;
 
-      final pos = await Geolocator.getCurrentPosition();
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
       if (!mounted) return;
+
+      // (0, 0) means GPS has no fix — fall back to Tunisia default
+      if (pos.latitude == 0.0 && pos.longitude == 0.0) return;
+
       final loc = LatLng(pos.latitude, pos.longitude);
       setState(() => _selected = loc);
       _mapController.move(loc, 15);
+    } catch (_) {
+      // GPS unavailable or timed out — map stays centered on Tunisia
     } finally {
       if (mounted) setState(() => _locating = false);
     }
