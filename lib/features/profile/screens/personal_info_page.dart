@@ -152,8 +152,12 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                       controller.licenseNumberController,
                       readOnly: true,
                     ),
-                    _buildField('clinic'.tr(), controller.clinicController),
                     _buildField('location'.tr(), controller.locationController),
+                    _buildReadOnlyInfo(
+                      label: 'primary_clinic_label'.tr(),
+                      value: controller.specialist?.primaryClinic?.name ??
+                          'no_primary_clinic'.tr(),
+                    ),
                   ],
 
                   const SizedBox(height: 32),
@@ -238,6 +242,39 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyInfo({required String label, required String value}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: Color(0xFF1A1C1E),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEEEEE),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF555555)),
             ),
           ),
         ],

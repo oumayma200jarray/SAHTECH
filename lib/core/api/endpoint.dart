@@ -108,6 +108,11 @@ class EndPoint {
   static String doctorSavePhysioPresenceResultat(String sessionId) =>
       'doctors/sessions/$sessionId/physiotherapie/resultat'; // Physio results
 
+  // ─── Doctor Clinics ──────────────────────────────────────────────────────
+  static const String doctorClinics = 'doctors/clinics';
+
+  static const String getAllClinics = 'users/clinics';
+
   // ─── Doctor Planning & Availability ─────────────────────────────────────
   static const String doctorDailySlots = 'doctors/daily-slots'; // Get slots
   static String doctorUpdateSlot(String slotId) =>

@@ -223,7 +223,8 @@ class _SpecialisteDetailsPageState extends State<SpecialisteDetailsPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                specialist.clinic,
+                                specialist.primaryClinic?.name ??
+                                    'no_primary_clinic'.tr(),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),

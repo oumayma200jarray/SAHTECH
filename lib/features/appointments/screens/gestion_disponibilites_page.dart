@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/models/availability_model.dart';
+import 'package:sahtek/models/clinic_model.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 // removed unused import: availability_calendar_grid
 import 'package:sahtek/features/appointments/widgets/availability_slot_card.dart';
@@ -801,13 +802,28 @@ class _SlotDialogState extends State<_SlotDialog> {
   late String endTime;
   late String place;
 
+  List<ClinicModel> _clinics = [];
+  ClinicModel? _selectedClinic;
+  bool _loadingClinics = false;
+
   @override
   void initState() {
     super.initState();
     dayOfWeek = widget.existingSlot?.dayOfWeek ?? 1;
     startTime = widget.existingSlot?.startTime ?? '09:00';
     endTime = widget.existingSlot?.endTime ?? '12:00';
-    place = widget.existingSlot == null ? 'Cabinet' : 'Cabinet';
+    place = 'Cabinet';
+    _loadClinics();
+  }
+
+  Future<void> _loadClinics() async {
+    setState(() => _loadingClinics = true);
+    try {
+      final list = await DoctorApiService.getClinics();
+      if (mounted) setState(() => _clinics = list);
+    } finally {
+      if (mounted) setState(() => _loadingClinics = false);
+    }
   }
 
   @override
@@ -818,61 +834,81 @@ class _SlotDialogState extends State<_SlotDialog> {
             ? 'Ajouter un créneau'
             : 'Modifier le créneau',
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<int>(
-            value: dayOfWeek,
-            items: List.generate(
-              7,
-              (i) => DropdownMenuItem(
-                value: i + 1,
-                child: Text(_getDayName(i + 1)),
-              ),
-            ),
-            onChanged: (v) => setState(() => dayOfWeek = v!),
-            decoration: const InputDecoration(labelText: 'Jour'),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: TextEditingController(text: startTime),
-                  decoration: const InputDecoration(labelText: 'Début (HH:MM)'),
-                  onChanged: (v) => startTime = v,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<int>(
+              value: dayOfWeek,
+              items: List.generate(
+                7,
+                (i) => DropdownMenuItem(
+                  value: i + 1,
+                  child: Text(_getDayName(i + 1)),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextField(
-                  controller: TextEditingController(text: endTime),
-                  decoration: const InputDecoration(labelText: 'Fin (HH:MM)'),
-                  onChanged: (v) => endTime = v,
+              onChanged: (v) => setState(() => dayOfWeek = v!),
+              decoration: const InputDecoration(labelText: 'Jour'),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: TextEditingController(text: startTime),
+                    decoration:
+                        const InputDecoration(labelText: 'Début (HH:MM)'),
+                    onChanged: (v) => startTime = v,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: TextEditingController(text: place),
-            decoration: const InputDecoration(labelText: 'Lieu'),
-            onChanged: (v) => place = v,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF6F7FB),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: TextEditingController(text: endTime),
+                    decoration:
+                        const InputDecoration(labelText: 'Fin (HH:MM)'),
+                    onChanged: (v) => endTime = v,
+                  ),
+                ),
+              ],
             ),
-            child: const Text(
-              'Tous les creneaux sont en cabinet',
-              style: TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+            const SizedBox(height: 10),
+            // ─── Clinic dropdown ───────────────────────────────────────
+            _loadingClinics
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(),
+                  )
+                : DropdownButtonFormField<ClinicModel?>(
+                    value: _selectedClinic,
+                    decoration: const InputDecoration(labelText: 'Clinique'),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text(
+                          'Aucune clinique / lieu externe',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      ..._clinics.map(
+                        (c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(c.name,
+                              style: const TextStyle(fontSize: 13)),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() => _selectedClinic = v),
+                  ),
+            const SizedBox(height: 10),
+            // ─── Place (room / cabinet number) ─────────────────────────
+            TextField(
+              controller: TextEditingController(text: place),
+              decoration: const InputDecoration(
+                  labelText: 'Lieu (salle, cabinet…)'),
+              onChanged: (v) => place = v,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         buttonIn('Annuler', () => Navigator.pop(context), width: 100),
@@ -892,12 +928,15 @@ class _SlotDialogState extends State<_SlotDialog> {
           final endHour = (endHourRaw - 1 + 24) % 24;
           final date = nextDateForWeekday(dayOfWeek).toIso8601String();
 
-          final payload = {
+          final payload = <String, dynamic>{
             'date': date,
             'startTime': startHour,
             'endTime': endHour,
-            'place': 'Cabinet',
+            'place': place.isNotEmpty ? place : 'Cabinet',
           };
+          if (_selectedClinic != null) {
+            payload['clinicId'] = _selectedClinic!.clinicId;
+          }
 
           if (widget.existingSlot == null) {
             Navigator.pop(context, {'action': 'create', 'payload': payload});

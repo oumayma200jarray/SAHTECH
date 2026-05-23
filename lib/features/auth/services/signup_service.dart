@@ -17,10 +17,11 @@ class SignupService {
     String? speciality,
     String? bio,
     String? licenseNumber,
-    String? clinic,
     String? location,
     double? latitude,
     double? longitude,
+    List<String>? clinicIds,
+    String? primaryClinicId,
   }) async {
     final Map<String, dynamic> body = {
       'fullName': fullName,
@@ -32,22 +33,25 @@ class SignupService {
       'role': role,
     };
 
-    // add patient fields if role is PATIENT
     if (role == 'PATIENT') {
       if (age != null) body['age'] = age;
       if (weight != null) body['weight'] = weight;
       if (height != null) body['height'] = height;
     }
 
-    // add doctor fields if role is DOCTOR
     if (role == 'DOCTOR') {
       if (speciality != null) body['speciality'] = speciality;
       if (bio != null) body['bio'] = bio;
       if (licenseNumber != null) body['licenseNumber'] = licenseNumber;
-      if (clinic != null) body['clinic'] = clinic;
       if (location != null) body['location'] = location;
       if (latitude != null) body['latitude'] = latitude;
       if (longitude != null) body['longitude'] = longitude;
+      if (clinicIds != null && clinicIds.isNotEmpty) {
+        body['clinicIds'] = clinicIds;
+      }
+      if (primaryClinicId != null && primaryClinicId.isNotEmpty) {
+        body['primaryClinicId'] = primaryClinicId;
+      }
     }
 
     return await EndPoint.client.post(

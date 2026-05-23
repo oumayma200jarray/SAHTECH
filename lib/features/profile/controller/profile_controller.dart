@@ -40,7 +40,6 @@ class ProfileController extends ChangeNotifier {
   final specialtyController = TextEditingController();
   final licenseNumberController = TextEditingController();
   final bioController = TextEditingController();
-  final clinicController = TextEditingController();
   final locationController = TextEditingController();
 
   Future<void> pickAndUploadImage({required BuildContext context}) async {
@@ -145,7 +144,6 @@ class ProfileController extends ChangeNotifier {
         specialtyController.text = specialist!.specialty;
         licenseNumberController.text = specialist!.licenseNumber;
         bioController.text = specialist!.bio;
-        clinicController.text = specialist!.clinic;
         locationController.text = specialist!.location;
       }
     } catch (e) {
@@ -258,7 +256,6 @@ class ProfileController extends ChangeNotifier {
     weightController.dispose();
     heightController.dispose();
     specialtyController.dispose();
-    clinicController.dispose();
     locationController.dispose();
     super.dispose();
   }

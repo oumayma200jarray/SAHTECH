@@ -32,7 +32,11 @@ class AuthController extends ChangeNotifier {
         Navigator.pushNamed(
           context,
           '/otp-verification',
-          arguments: {'userId': response['userId'], 'email': response['email']},
+          arguments: {
+            'userId': response['userId'],
+            'email': response['email'],
+            'type': 'TWO_FACTOR',
+          },
         );
       } else {
         await StorageService.saveSession(

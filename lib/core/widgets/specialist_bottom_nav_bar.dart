@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:provider/provider.dart';
+import 'package:sahtek/providers/appointment_notifier.dart';
 
 /// Bottom navigation bar for the specialist role.
-/// Shows 3 tabs: Dashboard, Patients, Profil.
+/// Shows 4 tabs: Dashboard, Patients, Profile, Availability.
+/// The Availability tab shows a badge when new appointments arrive via socket.
 class SpecialistBottomNavBar extends StatelessWidget {
   final int currentIndex;
 
   const SpecialistBottomNavBar({Key? key, required this.currentIndex})
-    : super(key: key);
+      : super(key: key);
 
   void _onItemTapped(BuildContext context, int index) {
     if (index == currentIndex) return;
+
+    // Reset the appointment badge when navigating to the availability screen
+    if (index == 3) {
+      Provider.of<AppointmentNotifier>(context, listen: false).reset();
+    }
 
     switch (index) {
       case 0:
@@ -30,6 +38,9 @@ class SpecialistBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final newCount =
+        context.watch<AppointmentNotifier>().newCount;
+
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
       selectedItemColor: const Color.fromARGB(255, 13, 84, 242),
@@ -53,11 +64,34 @@ class SpecialistBottomNavBar extends StatelessWidget {
           label: 'nav_profile'.tr(),
         ),
         BottomNavigationBarItem(
-          icon: const Icon(Icons.schedule_outlined),
-          activeIcon: const Icon(Icons.schedule),
+          icon: _BadgedIcon(
+            icon: Icons.schedule_outlined,
+            count: newCount,
+          ),
+          activeIcon: _BadgedIcon(
+            icon: Icons.schedule,
+            count: newCount,
+          ),
           label: 'nav_availability'.tr(),
         ),
       ],
+    );
+  }
+}
+
+class _BadgedIcon extends StatelessWidget {
+  final IconData icon;
+  final int count;
+
+  const _BadgedIcon({required this.icon, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    if (count == 0) return Icon(icon);
+    return Badge(
+      label: Text(count > 99 ? '99+' : '$count'),
+      backgroundColor: const Color(0xFFEF4444),
+      child: Icon(icon),
     );
   }
 }

@@ -12,6 +12,7 @@ class OtpController extends ChangeNotifier {
   Future<void> verifyOtp({
     required String userId,
     required String code,
+    required String type,
     required BuildContext context,
   }) async {
     isLoading = true;
@@ -22,6 +23,7 @@ class OtpController extends ChangeNotifier {
       final response = await AuthService.verifySignIn(
         userId: userId,
         code: code,
+        type: type,
       );
 
       await StorageService.saveSession(
@@ -57,7 +59,8 @@ class OtpController extends ChangeNotifier {
 
   Future<void> resendOtp({
     required String userId,
-    required String email, // 👈 add email
+    required String email,
+    required String type,
     required BuildContext context,
   }) async {
     isResending = true;
@@ -68,7 +71,7 @@ class OtpController extends ChangeNotifier {
       await AuthService.sendOtp(
         userId: userId,
         email: email,
-        type: 'TWO_FACTOR',
+        type: type,
       );
 
       if (!context.mounted) return;

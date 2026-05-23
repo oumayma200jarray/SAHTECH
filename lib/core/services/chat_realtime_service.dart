@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:sahtek/core/services/local_notification_service.dart';
+import 'package:sahtek/providers/appointment_notifier.dart';
 import 'package:sahtek/services/chat_service.dart';
 
 class ChatRealtimeService with WidgetsBindingObserver {
@@ -13,10 +14,14 @@ class ChatRealtimeService with WidgetsBindingObserver {
 
   StreamSubscription<SocketMessageEvent>? _newMessageSub;
   StreamSubscription<Map<String, dynamic>>? _notificationSub;
+  StreamSubscription<Map<String, dynamic>>? _newAppointmentSub;
   StreamSubscription<dynamic>? _errorSub;
 
   bool _started = false;
   final Map<String, DateTime> _recentNotificationKeys = {};
+
+  /// Injected from main.dart after the provider tree is built.
+  AppointmentNotifier? appointmentNotifier;
 
   Future<void> start() async {
     if (_started) return;
@@ -33,7 +38,6 @@ class ChatRealtimeService with WidgetsBindingObserver {
     try {
       await _chatSocket.initialize();
     } catch (e) {
-      // No token or no network at launch: keep app running and retry on resume.
       debugPrint('Chat realtime not connected at startup: $e');
     }
   }
@@ -45,8 +49,8 @@ class ChatRealtimeService with WidgetsBindingObserver {
       final sender = event.senderName.isNotEmpty
           ? event.senderName
           : (event.message.senderId.isNotEmpty
-                ? event.message.senderId
-                : 'New message');
+              ? event.message.senderId
+              : 'New message');
       final preview = event.message.text.isNotEmpty
           ? event.message.text
           : 'You received a new message';
@@ -72,6 +76,24 @@ class ChatRealtimeService with WidgetsBindingObserver {
       );
     });
 
+    _newAppointmentSub ??=
+        _chatSocket.newAppointmentStream.listen((payload) async {
+      final patientName =
+          payload['patientName']?.toString() ?? 'Un patient';
+      final title = 'Nouveau rendez-vous de $patientName';
+
+      if (!_shouldNotify(title)) return;
+
+      // Show local notification
+      await LocalNotificationService.showChatNotification(
+        title: title,
+        body: payload['place']?.toString() ?? '',
+      );
+
+      // Increment badge counter
+      appointmentNotifier?.increment();
+    });
+
     _errorSub ??= _chatSocket.errorStream.listen((error) {
       debugPrint('Chat realtime socket error: $error');
     });
@@ -84,9 +106,7 @@ class ChatRealtimeService with WidgetsBindingObserver {
       (_, timestamp) => now.difference(timestamp) > const Duration(seconds: 3),
     );
 
-    if (_recentNotificationKeys.containsKey(key)) {
-      return false;
-    }
+    if (_recentNotificationKeys.containsKey(key)) return false;
 
     _recentNotificationKeys[key] = now;
     return true;
@@ -107,9 +127,11 @@ class ChatRealtimeService with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     await _newMessageSub?.cancel();
     await _notificationSub?.cancel();
+    await _newAppointmentSub?.cancel();
     await _errorSub?.cancel();
     _newMessageSub = null;
     _notificationSub = null;
+    _newAppointmentSub = null;
     _errorSub = null;
     _started = false;
   }

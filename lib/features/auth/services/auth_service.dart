@@ -21,11 +21,12 @@ class AuthService {
   static Future<Map<String, dynamic>> verifySignIn({
     required String userId,
     required String code,
+    required String type,
   }) async {
     return await EndPoint.client.post(
       EndPoint.signinVerify,
-      body: {'userId': userId, 'code': code},
-      requiresAuth: false, // no token needed yet
+      body: {'userId': userId, 'code': code, 'type': type},
+      requiresAuth: false,
     );
   }
 

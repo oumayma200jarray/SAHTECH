@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sahtek/features/auth/services/signup_service.dart';
-import 'package:sahtek/features/auth/services/auth_service.dart';
 
 class SignupController extends ChangeNotifier {
   bool isLoading = false;
@@ -33,18 +32,18 @@ class SignupController extends ChangeNotifier {
     String? speciality,
     String? bio,
     String? licenseNumber,
-    String? clinic,
     String? location,
     double? latitude,
     double? longitude,
+    List<String>? clinicIds,
+    String? primaryClinicId,
   }) async {
     isLoading = true;
     errorMessage = null;
     notifyListeners();
 
     try {
-      // 1. create the account
-      await SignupService.signup(
+      final signupResponse = await SignupService.signup(
         fullName: fullName,
         email: email,
         password: password,
@@ -58,27 +57,22 @@ class SignupController extends ChangeNotifier {
         speciality: speciality,
         bio: bio,
         licenseNumber: licenseNumber,
-        clinic: clinic,
         location: location,
         latitude: latitude,
         longitude: longitude,
-      );
-
-      // 2. automatically signin to trigger OTP
-      final signinResponse = await AuthService.signIn(
-        email: email,
-        password: password,
+        clinicIds: clinicIds,
+        primaryClinicId: primaryClinicId,
       );
 
       if (!context.mounted) return;
 
-      // 3. navigate to OTP page
       Navigator.pushNamed(
         context,
         '/otp-verification',
         arguments: {
-          'userId': signinResponse['userId'],
-          'email': signinResponse['email'],
+          'userId': signupResponse['userId'] ?? signupResponse['id'],
+          'email': signupResponse['email'] ?? email,
+          'type': 'EMAIL_VERIFICATION',
         },
       );
     } catch (e) {

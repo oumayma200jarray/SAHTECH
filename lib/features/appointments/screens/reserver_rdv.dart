@@ -318,7 +318,9 @@ class _ReserverRDVPageState extends State<ReserverRDVPage> {
                   ),
                 ),
                 Text(
-                  '${specialist.specialty} - ${specialist.clinic}',
+                  specialist.primaryClinic != null
+                      ? '${specialist.specialty} - ${specialist.primaryClinic!.name}'
+                      : specialist.specialty,
                   style: const TextStyle(
                     color: Colors.grey,
                     fontSize: 12,

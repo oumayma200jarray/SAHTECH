@@ -53,6 +53,8 @@ class ChatServiceSocket {
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<dynamic> _errorController =
       StreamController<dynamic>.broadcast();
+  final StreamController<Map<String, dynamic>> _newAppointmentController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   // Callbacks
   MessageCallback? _onNewMessage;
@@ -81,6 +83,8 @@ class ChatServiceSocket {
       _unreadCountUpdatedController.stream;
   Stream<Map<String, dynamic>> get joinedStream => _joinedController.stream;
   Stream<dynamic> get errorStream => _errorController.stream;
+  Stream<Map<String, dynamic>> get newAppointmentStream =>
+      _newAppointmentController.stream;
 
   // ─── Initialize Socket Connection ─────────────────────────────────────
   Future<void> initialize() async {
@@ -223,6 +227,11 @@ class ChatServiceSocket {
     _socket.on('joined', (data) {
       final map = (data as Map?)?.cast<String, dynamic>() ?? const {};
       _joinedController.add(map);
+    });
+
+    _socket.on('new_appointment', (data) {
+      final map = (data as Map?)?.cast<String, dynamic>() ?? const {};
+      _newAppointmentController.add(map);
     });
 
     _socket.on('error', (data) {

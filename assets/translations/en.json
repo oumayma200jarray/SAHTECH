@@ -358,5 +358,22 @@
   "longitude_label": "LONGITUDE",
   "role_label": "CHOOSE YOUR ROLE",
   "speciality_label": "SPECIALTY",
-  "speciality_required": "Specialty is required"
+  "speciality_required": "Specialty is required",
+  "link_clinics_label": "LINK TO EXISTING CLINICS",
+  "primary_clinic_label": "PRIMARY CLINIC",
+  "primary_clinic_hint": "Select primary clinic",
+  "no_primary_clinic": "No primary clinic set",
+  "load_clinics": "Load clinics",
+  "my_clinics_title": "My Clinics",
+  "no_clinics_yet": "No clinics yet",
+  "no_clinics_desc": "Add your clinics to link them to your slots and profile.",
+  "add_clinic": "Add a clinic",
+  "clinic_name_label": "CLINIC NAME",
+  "clinic_name_hint": "e.g. Lakeside Clinic",
+  "clinic_name_required": "Clinic name is required",
+  "coordinates_label": "GPS COORDINATES",
+  "pick_on_map": "Pick on map",
+  "pick_location_title": "Pick a location",
+  "tap_map_hint": "Tap on the map to select a location",
+  "confirm_location": "Confirm location"
 }

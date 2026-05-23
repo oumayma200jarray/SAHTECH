@@ -22,6 +22,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   Timer? _timer;
   String? userId;
   String? email;
+  String _otpType = 'EMAIL_VERIFICATION';
 
   bool get _canVerify => _otpCode.length == otpLength;
   bool get _canResend => _remainingSeconds == 0;
@@ -38,6 +39,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
     final args = ModalRoute.of(context)?.settings.arguments as Map?;
     userId = args?['userId'];
     email = args?['email'];
+    _otpType = args?['type'] ?? 'EMAIL_VERIFICATION';
   }
 
   @override
@@ -123,6 +125,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                     otpController.verifyOtp(
                       userId: userId!,
                       code: verificationCode,
+                      type: _otpType,
                       context: context,
                     );
                   }
@@ -167,6 +170,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                           ? () => otpController.verifyOtp(
                               userId: userId!,
                               code: _otpCode,
+                              type: _otpType,
                               context: context,
                             )
                           : () {},
@@ -187,7 +191,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                             _startTimer();
                             otpController.resendOtp(
                               userId: userId!,
-                              email: email!, // 👈 add this
+                              email: email!,
+                              type: _otpType,
                               context: context,
                             );
                           }

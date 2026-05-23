@@ -42,7 +42,9 @@ import 'package:sahtek/features/specialists/screens/specialiste_details.dart';
 import 'package:sahtek/core/widgets/role_guard.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/features/auth/controllers/signup_controller.dart';
+import 'package:sahtek/features/clinics/screens/my_clinics_page.dart';
 import 'package:sahtek/features/specialists/screens/ListPatients.dart';
+import 'package:sahtek/providers/appointment_notifier.dart';
 import 'package:sahtek/features/specialists/screens/publier_exercice.dart';
 import 'package:sahtek/features/specialists/screens/specialist_medical_folder_page.dart';
 import 'package:sahtek/features/specialists/screens/medical_category_detail_page.dart';
@@ -90,6 +92,11 @@ void main() async {
             ChangeNotifierProvider(create: (_) => SignupController()),
             ChangeNotifierProvider(create: (_) => ProfileController()),
             ChangeNotifierProvider(create: (_) => GoogleAuthController()),
+            ChangeNotifierProvider(create: (_) {
+              final notifier = AppointmentNotifier();
+              ChatRealtimeService.instance.appointmentNotifier = notifier;
+              return notifier;
+            }),
           ],
           child: const MyApp(),
         ),
@@ -147,6 +154,8 @@ class MyApp extends StatelessWidget {
             RoleGuard(child: const SpecialistMedicalFolderPage()),
         '/medical_category_detail': (context) =>
             const MedicalCategoryDetailPage(),
+        '/my_clinics': (context) =>
+            RoleGuard(child: const MyClinicsPage()),
       },
     );
   }
