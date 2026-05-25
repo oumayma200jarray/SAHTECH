@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:provider/provider.dart';
-import 'package:sahtek/core/utils/navigation_utils.dart';
-import 'package:sahtek/features/profile/controller/profile_controller.dart';
 import 'package:sahtek/models/patient_model.dart';
 import 'package:sahtek/features/specialists/services/specialist_service.dart';
-import 'package:sahtek/features/specialists/widgets/patient_card.dart';
 import 'package:sahtek/core/widgets/specialist_bottom_nav_bar.dart';
 
 class ListePatientsPage extends StatefulWidget {
@@ -56,6 +52,24 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
     super.dispose();
   }
 
+  String _initials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    if (parts.isNotEmpty && parts[0].isNotEmpty)
+      return parts[0][0].toUpperCase();
+    return '?';
+  }
+
+  String _formatDate(String? iso) {
+    if (iso == null || iso.isEmpty) return '—';
+    try {
+      final dt = DateTime.parse(iso);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return iso;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,82 +87,87 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Color(0xFF0D54F2)),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadPatients,
-        child: SingleChildScrollView(
+        child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ─── Header ──────────────────────────────────────────
-              Text(
-                'management_portal'.tr(),
-                style: TextStyle(
-                  color: Colors.blue[400],
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'management_portal'.tr(),
+                      style: TextStyle(
+                        color: Colors.blue[400],
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'patients_heading'.tr(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 28,
+                        color: Color(0xFF1A1C1E),
+                      ),
+                    ),
+                    if (!_isLoading)
+                      Text(
+                        'patients_count'.tr(args: ['${_allPatients.length}']),
+                        style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                      ),
+                    const SizedBox(height: 20),
+                    _buildSearchBar(),
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'patients_heading'.tr(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 28,
-                  color: Color(0xFF1A1C1E),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ─── Search Bar ──────────────────────────────────────
-              _buildSearchBar(),
-              const SizedBox(height: 24),
-
-              // ─── Patient List ────────────────────────────────────
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40.0),
+            ),
+            if (_isLoading)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: Color(0xFF0D54F2),
                     ),
                   ),
-                )
-              else if (_filteredPatients.isEmpty)
-                _buildEmptyState()
-              else
-                ..._filteredPatients.map(
-                  (patient) => PatientCard(
-                    patient: patient,
-                    onAddMedicalFolder: () {
-                      Navigator.pushNamed(
+                ),
+              )
+            else if (_filteredPatients.isEmpty)
+              SliverToBoxAdapter(child: _buildEmptyState())
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final patient = _filteredPatients[index];
+                    return _PatientCard(
+                      patient: patient,
+                      initials: _initials(patient.fullName),
+                      formattedDate: _formatDate(patient.lastVisitDate),
+                      onAddMedicalFolder: () => Navigator.pushNamed(
                         context,
                         '/specialist_medical_folder',
                         arguments: patient,
-                      );
-                    },
-                    onAddExercise: () {
-                      Navigator.pushNamed(
+                      ),
+                      onAddExercise: () => Navigator.pushNamed(
                         context,
                         '/publier_exercice',
                         arguments: patient,
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  }, childCount: _filteredPatients.length),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
       bottomNavigationBar: const SpecialistBottomNavBar(currentIndex: 1),
@@ -185,6 +204,7 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 48),
+      margin: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -199,6 +219,199 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PatientCard extends StatelessWidget {
+  final PatientModel patient;
+  final String initials;
+  final String formattedDate;
+  final VoidCallback onAddMedicalFolder;
+  final VoidCallback onAddExercise;
+
+  const _PatientCard({
+    required this.patient,
+    required this.initials,
+    required this.formattedDate,
+    required this.onAddMedicalFolder,
+    required this.onAddExercise,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header row: avatar + name/age + badge ──
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: const Color(
+                  0xFF0D54F2,
+                ).withValues(alpha: 0.12),
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Color(0xFF0D54F2),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patient.fullName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Color(0xFF1A1C1E),
+                      ),
+                    ),
+                    if (patient.age > 0)
+                      Text(
+                        'patients_years'.tr(args: ['${patient.age}']),
+                        style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'patients_active'.tr(),
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // ── Info rows ──
+          _InfoRow(
+            label: 'patients_condition'.tr(),
+            value: patient.primaryCondition ?? '—',
+          ),
+          const SizedBox(height: 6),
+          _InfoRow(label: 'patients_last_visit'.tr(), value: formattedDate),
+          const SizedBox(height: 16),
+
+          // ── Action buttons ──
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: onAddMedicalFolder,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE8ECF0),
+                      foregroundColor: const Color(0xFF3A3F47),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'add_medical_folder'.tr(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: onAddExercise,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D54F2),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'add_exercise'.tr(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label : ',
+          style: TextStyle(color: Colors.grey[500], fontSize: 13),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF1A1C1E),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

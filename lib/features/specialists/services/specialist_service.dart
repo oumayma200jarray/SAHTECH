@@ -42,7 +42,15 @@ class SpecialistService {
   /// Récupère la liste des patients assignés au spécialiste connecté
   static Future<List<PatientModel>> fetchMyPatients() async {
     try {
-      final List<dynamic> data = await EndPoint.client.get(EndPoint.myPatients);
+      final dynamic response = await EndPoint.client.get(EndPoint.doctorGetPatients);
+      List<dynamic> data;
+      if (response is Map && response.containsKey('patients')) {
+        data = response['patients'] as List<dynamic>;
+      } else if (response is List) {
+        data = response;
+      } else {
+        data = [];
+      }
       return data.map((json) => PatientModel.fromJson(json)).toList();
     } catch (e) {
       print('⚠️ fetchMyPatients error: $e');
@@ -159,7 +167,7 @@ class SpecialistService {
     }
   }
 
-  /// Filtre local des patients par nom, email ou téléphone
+  /// Filtre local des patients par nom, email, téléphone ou condition
   static List<PatientModel> searchPatients(
     List<PatientModel> allPatients,
     String text,
@@ -172,7 +180,8 @@ class SpecialistService {
       final nameMatch = patient.fullName.toLowerCase().contains(query);
       final emailMatch = patient.email.toLowerCase().contains(query);
       final phoneMatch = patient.phone.toLowerCase().contains(query);
-      return nameMatch || emailMatch || phoneMatch;
+      final conditionMatch = (patient.primaryCondition ?? '').toLowerCase().contains(query);
+      return nameMatch || emailMatch || phoneMatch || conditionMatch;
     }).toList();
   }
 }

@@ -43,6 +43,8 @@ import 'package:sahtek/core/widgets/role_guard.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/features/auth/controllers/signup_controller.dart';
 import 'package:sahtek/features/clinics/screens/my_clinics_page.dart';
+import 'package:sahtek/features/exercises/controller/exercises_controller.dart';
+import 'package:sahtek/features/exercises/screen/exercises_page.dart';
 import 'package:sahtek/features/specialists/screens/ListPatients.dart';
 import 'package:sahtek/providers/appointment_notifier.dart';
 import 'package:sahtek/features/specialists/screens/publier_exercice.dart';
@@ -97,6 +99,7 @@ void main() async {
               ChatRealtimeService.instance.appointmentNotifier = notifier;
               return notifier;
             }),
+            ChangeNotifierProvider(create: (_) => ExercisesController()),
           ],
           child: const MyApp(),
         ),
@@ -156,6 +159,8 @@ class MyApp extends StatelessWidget {
             const MedicalCategoryDetailPage(),
         '/my_clinics': (context) =>
             RoleGuard(child: const MyClinicsPage()),
+        '/exercises': (context) =>
+            RoleGuard(child: const ExercisesPage()),
       },
     );
   }

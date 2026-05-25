@@ -12,6 +12,8 @@ class PatientModel {
   final double height;
   final List<MedicalDocument> medicalDocument;
   final String imageUrl;
+  final String? primaryCondition; // from appointments[0].reason
+  final String? lastVisitDate;    // from appointments[0].AvailableSlot.date (ISO)
 
   PatientModel({
     required this.userId,
@@ -25,10 +27,16 @@ class PatientModel {
     required this.height,
     required this.medicalDocument,
     required this.imageUrl,
+    this.primaryCondition,
+    this.lastVisitDate,
   });
 
   factory PatientModel.fromJson(Map<String, dynamic> json) {
-    final patient = json['patient'] as Map<String, dynamic>?; // 👈 nullable
+    final patient = json['patient'] as Map<String, dynamic>?;
+    final appointments = (patient?['appointments'] as List?) ?? [];
+    final firstAppt =
+        appointments.isNotEmpty ? appointments[0] as Map? : null;
+    final slot = firstAppt?['AvailableSlot'] as Map?;
 
     return PatientModel(
       userId: json['userId'] ?? '',
@@ -38,12 +46,14 @@ class PatientModel {
       address: json['address'] ?? '',
       gender: json['gender'] ?? '',
       imageUrl: json['imageUrl'] ?? 'https://i.pravatar.cc/150?u=jean',
-      age: patient?['age'] ?? 0, // 👈 safe null access
+      age: patient?['age'] ?? 0,
       weight: (patient?['weight'] ?? 0.0).toDouble(),
       height: (patient?['height'] ?? 0.0).toDouble(),
       medicalDocument: (patient?['medicalDocuments'] as List? ?? [])
           .map((doc) => MedicalDocument.fromJson(doc))
           .toList(),
+      primaryCondition: firstAppt?['reason']?.toString(),
+      lastVisitDate: slot?['date']?.toString(),
     );
   }
 

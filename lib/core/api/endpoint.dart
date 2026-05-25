@@ -123,7 +123,11 @@ class EndPoint {
       'doctors/appointments/$appointmentId'; // Update appointment
 
   // ─── Doctor Content / Posts ──────────────────────────────────────────────
-  static const String doctorMyPosts = 'doctors/my_posts'; // Get doctor's posts
-  static String doctorDeletePost(String postId) =>
-      'doctors/my_posts/$postId'; // Delete post
+  static const String doctorMyPosts = 'doctors/my_posts';
+  static String doctorDeletePost(String postId) => 'doctors/my_posts/$postId';
+
+  // ─── Doctor Exercises ────────────────────────────────────────────────────
+  static const String doctorExercises = 'doctors/exercises';
+  static String doctorExerciseById(String id) => 'doctors/exercises/$id';
+  static const String doctorAssignExercise = 'doctors/assign-exercise';
 }

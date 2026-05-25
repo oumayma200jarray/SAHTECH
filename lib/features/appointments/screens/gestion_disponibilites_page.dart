@@ -182,7 +182,7 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7FF),
-      bottomNavigationBar: const SpecialistBottomNavBar(currentIndex: 3),
+      bottomNavigationBar: const SpecialistBottomNavBar(currentIndex: 2),
       body: Stack(
         children: [
           Positioned(

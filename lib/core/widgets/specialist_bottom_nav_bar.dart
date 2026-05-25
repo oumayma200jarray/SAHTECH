@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 import 'package:sahtek/providers/appointment_notifier.dart';
 
 /// Bottom navigation bar for the specialist role.
-/// Shows 4 tabs: Dashboard, Patients, Profile, Availability.
-/// The Availability tab shows a badge when new appointments arrive via socket.
+/// 0 Dashboard · 1 Patients · 2 Availability (badged) · 3 Exercises
 class SpecialistBottomNavBar extends StatelessWidget {
   final int currentIndex;
 
@@ -15,8 +15,8 @@ class SpecialistBottomNavBar extends StatelessWidget {
   void _onItemTapped(BuildContext context, int index) {
     if (index == currentIndex) return;
 
-    // Reset the appointment badge when navigating to the availability screen
-    if (index == 3) {
+    // Reset the appointment badge when navigating to availability
+    if (index == 2) {
       Provider.of<AppointmentNotifier>(context, listen: false).reset();
     }
 
@@ -28,18 +28,17 @@ class SpecialistBottomNavBar extends StatelessWidget {
         Navigator.pushReplacementNamed(context, '/liste_patients');
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/profile');
+        Navigator.pushReplacementNamed(context, '/gestion_disponibilites');
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, '/gestion_disponibilites');
+        Navigator.pushReplacementNamed(context, '/exercises');
         break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final newCount =
-        context.watch<AppointmentNotifier>().newCount;
+    final newCount = context.watch<AppointmentNotifier>().newCount;
 
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
@@ -59,20 +58,14 @@ class SpecialistBottomNavBar extends StatelessWidget {
           label: 'nav_patients'.tr(),
         ),
         BottomNavigationBarItem(
-          icon: const Icon(Icons.person_outline),
-          activeIcon: const Icon(Icons.person),
-          label: 'nav_profile'.tr(),
+          icon: _BadgedIcon(icon: Icons.schedule_outlined, count: newCount),
+          activeIcon: _BadgedIcon(icon: Icons.schedule, count: newCount),
+          label: 'nav_availability'.tr(),
         ),
         BottomNavigationBarItem(
-          icon: _BadgedIcon(
-            icon: Icons.schedule_outlined,
-            count: newCount,
-          ),
-          activeIcon: _BadgedIcon(
-            icon: Icons.schedule,
-            count: newCount,
-          ),
-          label: 'nav_availability'.tr(),
+          icon: const Icon(Iconsax.activity),
+          activeIcon: const Icon(Iconsax.activity),
+          label: 'nav_exercises'.tr(),
         ),
       ],
     );
