@@ -20,6 +20,18 @@ class ContentModel {
   /// URL de la vidéo d'exercice (optionnel)
   final String? videoUrl;
 
+  /// Catégories (enum keys) associées à l'exercice
+  final List<String> categories;
+
+  /// Side values (enum keys) e.g. BACK, FRONT
+  final List<String> sides;
+
+  /// Specialist who created/shared the exercise
+  final String? specialistName;
+
+  /// Specialist avatar/image URL
+  final String? specialistImageUrl;
+
   /// Auteur ou créateur du contenu (ex: "Par Dr. Sarah Miller")
   final String? author;
 
@@ -44,24 +56,40 @@ class ContentModel {
     this.duration,
     this.exerciseType,
     this.requiredView,
+    this.categories = const [],
+    this.sides = const [],
+    this.specialistName,
+    this.specialistImageUrl,
   });
 
   /// Méthode (factory) pour créer une instance de [ContentModel] à partir d'un objet JSON.
   /// Modèle très utile pour désérialiser la réponse de l'API backend.
   factory ContentModel.fromJson(Map<String, dynamic> json) {
     return ContentModel(
-      // Si 'id' est null, on renvoie une chaîne vide par défaut
-      id: json['id']?.toString() ?? '',
-      // Si 'title' est null, on renvoie une chaîne vide
-      title: json['title'] ?? '',
-      description: json['description'],
-      subtitle: json['subtitle'],
-      imageUrl: json['imageUrl'],
-      videoUrl: json['videoUrl'],
-      author: json['author'],
-      duration: json['duration'],
-      exerciseType: json['exerciseType'],
-      requiredView: json['requiredView'],
+      // Support both 'exerciseId' and generic 'id'
+      id: (json['exerciseId'] ?? json['id'])?.toString() ?? '',
+      // Support 'name' or old 'title'
+      title: (json['name'] ?? json['title'])?.toString() ?? '',
+      description: json['description']?.toString(),
+      subtitle: json['subtitle']?.toString(),
+      imageUrl: json['imageUrl']?.toString(),
+      videoUrl: json['videoUrl']?.toString(),
+      author: json['author']?.toString(),
+      duration: json['duration']?.toString(),
+      exerciseType: json['exerciseType']?.toString(),
+      requiredView: json['requiredView']?.toString(),
+      categories: (json['category'] is List)
+          ? List<String>.from(json['category'].map((e) => e.toString()))
+          : (json['categories'] is List)
+          ? List<String>.from(json['categories'].map((e) => e.toString()))
+          : <String>[],
+      sides: (json['side'] is List)
+          ? List<String>.from(json['side'].map((e) => e.toString()))
+          : (json['sides'] is List)
+          ? List<String>.from(json['sides'].map((e) => e.toString()))
+          : <String>[],
+      specialistName: json['specialist']?['user']?['fullName']?.toString(),
+      specialistImageUrl: json['specialist']?['user']?['imageUrl']?.toString(),
     );
   }
 }

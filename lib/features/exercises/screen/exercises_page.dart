@@ -958,6 +958,28 @@ class _VideoPlaceholder extends StatelessWidget {
   final String? videoUrl;
   const _VideoPlaceholder({this.videoUrl});
 
+  static Future<void> _openVideo(BuildContext context, String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
+      // Try native app / browser first (YouTube, Facebook, etc.)
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && context.mounted) {
+        // Fallback: in-app web view (works for direct MinIO / private links)
+        await launchUrl(uri, mode: LaunchMode.inAppWebView);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible d\'ouvrir la vidéo'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -974,12 +996,7 @@ class _VideoPlaceholder extends StatelessWidget {
         ),
         child: videoUrl != null && videoUrl!.isNotEmpty
             ? InkWell(
-                onTap: () async {
-                  final uri = Uri.tryParse(videoUrl!);
-                  if (uri != null && await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
+                onTap: () => _openVideo(context, videoUrl!),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

@@ -3,6 +3,8 @@ import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/features/auth/services/auth_service.dart';
 import 'package:sahtek/core/api/endpoint.dart';
 import 'package:sahtek/core/services/push_notification_service.dart';
+import 'package:provider/provider.dart';
+import 'package:sahtek/providers/global_data_provider.dart';
 
 class AuthInitService {
   static Future<void> checkAndRestoreSession(BuildContext context) async {
@@ -47,6 +49,19 @@ class AuthInitService {
       debugPrint('🔓 AuthInitService: routing to $targetRoute');
 
       await PushNotificationService.syncStoredTokenToBackend();
+
+      // load profile into provider if available (defer to next frame)
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final provider = Provider.of<GlobalDataProvider>(
+            context,
+            listen: false,
+          );
+          await provider.loadProfile();
+        } catch (_) {
+          // ignore if provider not available yet
+        }
+      });
 
       if (!context.mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, targetRoute, (route) => false);

@@ -250,14 +250,6 @@ class _MessagerieDetailsPageState extends State<MessagerieDetailsPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  _isSocketReady ? 'Realtime connected' : 'REST fallback',
-                  style: TextStyle(
-                    color: _isSocketReady ? Colors.green : Colors.grey[600],
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
               ],
             ),
           ],

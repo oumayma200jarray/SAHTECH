@@ -5,7 +5,7 @@ import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class LocalisationDouleurPage extends StatefulWidget {
-  const LocalisationDouleurPage({Key? key}) : super(key: key);
+  const LocalisationDouleurPage({super.key});
 
   @override
   State<LocalisationDouleurPage> createState() =>
@@ -17,26 +17,74 @@ class _LocalisationDouleurPageState extends State<LocalisationDouleurPage> {
   Offset? _tapPoint;
 
   // Points de repère sur les deux silhouettes (Face et Dos)
-  // x, y en % de l'image (0.0 à 1.0)
+  // Each point has a stable key (matching backend enum) and a translation key for display.
   final List<_PointInfo> _pointInfos = [
     // --- Silhouette de DOS (gauche de l'image) ---
-    _PointInfo('neck'.tr(), const Offset(0.25, 0.10)),
-    _PointInfo('left_shoulder'.tr(), const Offset(0.12, 0.22)),
-    _PointInfo('right_shoulder'.tr(), const Offset(0.38, 0.22)),
-    _PointInfo('back'.tr(), const Offset(0.25, 0.40)),
-    _PointInfo('left_elbow'.tr(), const Offset(0.05, 0.48)),
-    _PointInfo('right_elbow'.tr(), const Offset(0.45, 0.48)),
+    _PointInfo(key: 'NECK', labelKey: 'neck', pos: const Offset(0.25, 0.10)),
+    _PointInfo(
+      key: 'LEFT_SHOULDER',
+      labelKey: 'left_shoulder',
+      pos: const Offset(0.12, 0.22),
+    ),
+    _PointInfo(
+      key: 'RIGHT_SHOULDER',
+      labelKey: 'right_shoulder',
+      pos: const Offset(0.38, 0.22),
+    ),
+    _PointInfo(key: 'BACK', labelKey: 'back', pos: const Offset(0.25, 0.40)),
+    _PointInfo(
+      key: 'LEFT_ELBOW',
+      labelKey: 'left_elbow',
+      pos: const Offset(0.05, 0.48),
+    ),
+    _PointInfo(
+      key: 'RIGHT_ELBOW',
+      labelKey: 'right_elbow',
+      pos: const Offset(0.45, 0.48),
+    ),
 
     // --- Silhouette de FACE (droite de l'image) ---
-    _PointInfo('neck'.tr(), const Offset(0.75, 0.10)),
-    _PointInfo('right_shoulder'.tr(), const Offset(0.62, 0.22)),
-    _PointInfo('left_shoulder'.tr(), const Offset(0.88, 0.22)),
-    _PointInfo('right_knee'.tr(), const Offset(0.68, 0.70)),
-    _PointInfo('left_knee'.tr(), const Offset(0.82, 0.70)),
-    _PointInfo('right_foot'.tr(), const Offset(0.68, 0.92)),
-    _PointInfo('left_foot'.tr(), const Offset(0.82, 0.92)),
-    _PointInfo('right_elbow'.tr(), const Offset(0.55, 0.48)),
-    _PointInfo('left_elbow'.tr(), const Offset(0.95, 0.48)),
+    _PointInfo(key: 'NECK', labelKey: 'neck', pos: const Offset(0.75, 0.10)),
+    _PointInfo(
+      key: 'RIGHT_SHOULDER',
+      labelKey: 'right_shoulder',
+      pos: const Offset(0.62, 0.22),
+    ),
+    _PointInfo(
+      key: 'LEFT_SHOULDER',
+      labelKey: 'left_shoulder',
+      pos: const Offset(0.88, 0.22),
+    ),
+    _PointInfo(
+      key: 'RIGHT_KNEE',
+      labelKey: 'right_knee',
+      pos: const Offset(0.68, 0.70),
+    ),
+    _PointInfo(
+      key: 'LEFT_KNEE',
+      labelKey: 'left_knee',
+      pos: const Offset(0.82, 0.70),
+    ),
+    _PointInfo(
+      key: 'RIGHT_FOOT',
+      labelKey: 'right_foot',
+      pos: const Offset(0.68, 0.92),
+    ),
+    _PointInfo(
+      key: 'LEFT_FOOT',
+      labelKey: 'left_foot',
+      pos: const Offset(0.82, 0.92),
+    ),
+    _PointInfo(
+      key: 'RIGHT_ELBOW',
+      labelKey: 'right_elbow',
+      pos: const Offset(0.55, 0.48),
+    ),
+    _PointInfo(
+      key: 'LEFT_ELBOW',
+      labelKey: 'left_elbow',
+      pos: const Offset(0.95, 0.48),
+    ),
   ];
 
   _ImageRect _imageRect(BoxConstraints constraints) {
@@ -54,7 +102,7 @@ class _LocalisationDouleurPageState extends State<LocalisationDouleurPage> {
     Offset local,
     BoxConstraints constraints,
     GlobalDataProvider provider,
-    String current,
+    String currentKey,
   ) {
     final r = _imageRect(constraints);
     final double tx = local.dx - r.ox;
@@ -68,7 +116,7 @@ class _LocalisationDouleurPageState extends State<LocalisationDouleurPage> {
     // ÉTAPE 1 : Logique d'Intelligence et d'Interaction
     // Trouver le point d'intérêt prédéfini le plus proche du tap de l'utilisateur
     // Utilisation du calcul de distance euclidienne (x2 - x1)^2 + (y2 - y1)^2
-    String best = current;
+    String bestKey = currentKey;
     double minDist = double.infinity;
 
     for (var point in _pointInfos) {
@@ -77,26 +125,48 @@ class _LocalisationDouleurPageState extends State<LocalisationDouleurPage> {
           (point.pos.dy - py) * (point.pos.dy - py);
       if (d < minDist) {
         minDist = d;
-        best = point.name;
+        bestKey = point.key;
       }
     }
 
     setState(() => _tapPoint = Offset(px, py));
-    if (best != current) provider.setMembre(best);
+    if (bestKey != currentKey) provider.setMembre(bestKey);
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<GlobalDataProvider>(context);
-    final selectedZone = provider.membreSelectionne;
+    final selectedZoneKey = provider.membreSelectionne;
 
-    // Point à dessiner : là où l'utilisateur a tapé, sinon le premier point correspondant à la zone
+    // Map enum keys to translation keys for display
+    const Map<String, String> _keyToLabel = {
+      'NECK': 'neck',
+      'LEFT_SHOULDER': 'left_shoulder',
+      'RIGHT_SHOULDER': 'right_shoulder',
+      'BACK': 'back',
+      'LEFT_ELBOW': 'left_elbow',
+      'RIGHT_ELBOW': 'right_elbow',
+      'RIGHT_KNEE': 'right_knee',
+      'LEFT_KNEE': 'left_knee',
+      'RIGHT_FOOT': 'right_foot',
+      'LEFT_FOOT': 'left_foot',
+    };
+
+    final selectedZone = selectedZoneKey.isEmpty
+        ? ''
+        : (_keyToLabel[selectedZoneKey]?.tr() ?? selectedZoneKey);
+
+    // Point à dessiner : là où l'utilisateur a tapé, sinon the point matching selected key
     final Offset drawPoint =
         _tapPoint ??
         (_pointInfos
             .firstWhere(
-              (p) => p.name == selectedZone,
-              orElse: () => _PointInfo('', const Offset(0.5, 0.5)),
+              (p) => p.key == selectedZoneKey,
+              orElse: () => const _PointInfo(
+                key: '',
+                labelKey: '',
+                pos: Offset(0.5, 0.5),
+              ),
             )
             .pos);
 
@@ -330,7 +400,12 @@ class _ImageRect {
 }
 
 class _PointInfo {
-  final String name;
+  final String key; // enum key e.g. NECK, LEFT_SHOULDER
+  final String labelKey; // translation key e.g. 'neck'
   final Offset pos;
-  const _PointInfo(this.name, this.pos);
+  const _PointInfo({
+    required this.key,
+    required this.labelKey,
+    required this.pos,
+  });
 }

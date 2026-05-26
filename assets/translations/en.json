@@ -97,6 +97,8 @@
   "start_routine": "START ROUTINE",
   "clinical_advice": "CLINICAL ADVICE",
   "clinical_advice_text": "Perform the exercise slowly, with good posture and normal breathing, gradually increasing intensity and stopping in case of pain",
+  "created_by": "Created by",
+  "no_description": "No description",
   "videos": "Videos",
   "articles": "Articles",
   "documents": "Documents",

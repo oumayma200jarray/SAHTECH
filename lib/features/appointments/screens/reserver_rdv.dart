@@ -176,96 +176,100 @@ class _ReserverRDVPageState extends State<ReserverRDVPage> {
             colors: [Color(0xFFF6F9FF), Color(0xFFFFFFFF)],
           ),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSpecialistCard(specialist),
-              const SizedBox(height: 24),
-              Text(
-                'consultation_type'.tr(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: Color(0xFF1D2B53),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTypeConsultation(
-                      "presentiel".tr(),
-                      Icons.groups,
-                      isPresentiel,
-                      () {
-                        setState(() {
-                          isPresentiel = true;
-                          selectedTime = '';
-                          selectedAvailabilityId = '';
-                        });
-                      },
-                    ),
+        child: RefreshIndicator(
+          onRefresh: _loadAvailableSlots,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSpecialistCard(specialist),
+                const SizedBox(height: 24),
+                Text(
+                  'consultation_type'.tr(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Color(0xFF1D2B53),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildTypeConsultation(
-                      "distance".tr(),
-                      Icons.videocam,
-                      !isPresentiel,
-                      () {
-                        setState(() {
-                          isPresentiel = false;
-                          selectedTime = '';
-                          selectedAvailabilityId = '';
-                        });
-                      },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTypeConsultation(
+                        "presentiel".tr(),
+                        Icons.groups,
+                        isPresentiel,
+                        () {
+                          setState(() {
+                            isPresentiel = true;
+                            selectedTime = '';
+                            selectedAvailabilityId = '';
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildTypeConsultation(
+                        "distance".tr(),
+                        Icons.videocam,
+                        !isPresentiel,
+                        () {
+                          setState(() {
+                            isPresentiel = false;
+                            selectedTime = '';
+                            selectedAvailabilityId = '';
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                _buildDateSelector(),
+                if (_isLoadingSlots) ...[
+                  const SizedBox(height: 24),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+                if (!_isLoadingSlots && _filteredSlots.isEmpty) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFDCE7FF)),
+                    ),
+                    child: const Text(
+                      'Aucun créneau disponible pour cette date.',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 24),
-              _buildDateSelector(),
-              if (_isLoadingSlots) ...[
                 const SizedBox(height: 24),
-                const Center(child: CircularProgressIndicator()),
-              ],
-              if (!_isLoadingSlots && _filteredSlots.isEmpty) ...[
-                const SizedBox(height: 24),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFDCE7FF)),
-                  ),
-                  child: const Text(
-                    'Aucun créneau disponible pour cette date.',
-                    style: TextStyle(
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                _buildPeriodSection(
+                  'morning'.tr(),
+                  Icons.wb_sunny_outlined,
+                  morningSlots,
                 ),
+                const SizedBox(height: 24),
+                _buildPeriodSection(
+                  'afternoon'.tr(),
+                  Icons.nights_stay_outlined,
+                  afternoonSlots,
+                ),
+                const SizedBox(height: 24),
+                _buildNoteSection(),
+                const SizedBox(height: 120),
               ],
-              const SizedBox(height: 24),
-              _buildPeriodSection(
-                'morning'.tr(),
-                Icons.wb_sunny_outlined,
-                morningSlots,
-              ),
-              const SizedBox(height: 24),
-              _buildPeriodSection(
-                'afternoon'.tr(),
-                Icons.nights_stay_outlined,
-                afternoonSlots,
-              ),
-              const SizedBox(height: 24),
-              _buildNoteSection(),
-              const SizedBox(height: 120),
-            ],
+            ),
           ),
         ),
       ),
@@ -473,14 +477,6 @@ class _ReserverRDVPageState extends State<ReserverRDVPage> {
                   color: Colors.grey,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Text(
-                '60,00 dt',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
                 ),
               ),
             ],

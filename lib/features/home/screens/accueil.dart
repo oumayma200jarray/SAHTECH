@@ -117,14 +117,9 @@ class _AccueilPageState extends State<AccueilPage> {
   }
 
   Future<List<_FeedPostItem>> _fetchFeedItems() async {
-    final results = await Future.wait([
-      EndPoint.client.get(EndPoint.posts),
-      EndPoint.client.get(EndPoint.publicExercises),
-    ]);
-
-    final postsRaw = (results[0] as List<dynamic>?) ?? <dynamic>[];
-    final exercisesRaw = (results[1] as List<dynamic>?) ?? <dynamic>[];
-
+    final postsRaw =
+        (await EndPoint.client.get(EndPoint.posts)) as List<dynamic>? ??
+        <dynamic>[];
     final articles = postsRaw
         .whereType<Map<String, dynamic>>()
         .where((json) {
@@ -147,22 +142,7 @@ class _AccueilPageState extends State<AccueilPage> {
           );
         })
         .toList();
-
-    final videos = exercisesRaw.whereType<Map<String, dynamic>>().map((json) {
-      final specialist = json['specialist'] as Map<String, dynamic>?;
-      final user = specialist?['user'] as Map<String, dynamic>?;
-      return _FeedPostItem(
-        id: (json['exerciseId'] ?? '').toString(),
-        authorName: (user?['fullName'] ?? '').toString(),
-        authorImageUrl: UrlHelper.fixImageUrl(user?['imageUrl']?.toString()),
-        title: (json['name'] ?? '').toString(),
-        description: (json['description'] ?? '').toString(),
-        mediaUrl: UrlHelper.fixImageUrl(json['videoUrl']?.toString()),
-        isVideo: true,
-      );
-    }).toList();
-
-    return [...videos, ...articles];
+    return [...articles];
   }
 
   Future<void> _handleNewGoogleUserFlow() async {
@@ -324,15 +304,16 @@ class _AccueilPageState extends State<AccueilPage> {
                 // Section "Vidéos d'exercices"
                 _buildSectionHeader('exercise_videos'.tr()),
                 const SizedBox(height: 16),
-                _buildPostsFeed(),
-
-                const SizedBox(height: 32),
 
                 // Section "Prochaine évaluation" (Uniquement s'il y a un RDV à venir)
                 if (upcomingAppointment != null) ...[
                   _buildEvaluationCard(context, upcomingAppointment),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 16),
                 ],
+
+                _buildPostsFeed(),
+
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -354,43 +335,49 @@ class _AccueilPageState extends State<AccueilPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/profile'),
-              child: CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.blue.withOpacity(0.1),
-                child: Text(
-                  profile.fullName.isNotEmpty
-                      ? profile.fullName[0].toUpperCase()
-                      : 'U',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 13, 84, 242),
+        Expanded(
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/profile'),
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.blue.withOpacity(0.1),
+                  child: Text(
+                    profile.fullName.isNotEmpty
+                        ? profile.fullName[0].toUpperCase()
+                        : 'U',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromARGB(255, 13, 84, 242),
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'welcome_back'.tr(),
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'welcome_back'.tr(),
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                    Text(
+                      profile.fullName.isNotEmpty ? profile.fullName : '',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ],
                 ),
-                Text(
-                  profile.fullName.isNotEmpty ? profile.fullName : '',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
         Row(
           children: [

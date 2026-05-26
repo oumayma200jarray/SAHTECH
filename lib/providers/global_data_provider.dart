@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:sahtek/features/auth/services/auth_service.dart';
 import 'package:sahtek/models/content_model.dart';
 import 'package:sahtek/models/appointment_model.dart';
 import 'package:sahtek/services/appointment_service.dart';
@@ -10,11 +9,11 @@ import 'package:sahtek/models/ia_tracking_model.dart';
 import 'package:sahtek/models/availability_model.dart';
 import 'package:sahtek/services/availability_service.dart';
 import 'package:sahtek/features/specialists/services/specialist_service.dart';
+import 'package:sahtek/features/profile/services/profile_service.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GlobalDataProvider extends ChangeNotifier {
-  final AuthService _userService = AuthService();
   // Informations globales du patient
   PatientModel _profile = PatientModel.empty();
   PatientModel get profile => _profile;
@@ -222,6 +221,34 @@ class GlobalDataProvider extends ChangeNotifier {
     // Initialiser des rendez-vous par défaut si besoin
     initializeAppointments();
     loadAvailabilities();
+    // try loading profile if session exists (non-blocking)
+    loadProfile();
+  }
+
+  // Load profile from API and set into provider. Chooses patient vs specialist by stored role.
+  Future<void> loadProfile() async {
+    try {
+      final role = await SharedPreferences.getInstance().then(
+        (p) => p.getString('role') ?? '',
+      );
+      if (role.toUpperCase() == 'SPECIALIST' ||
+          role.toUpperCase() == 'SPECIALISTE' ||
+          role.toUpperCase() == 'DOCTOR') {
+        final specialist = await ProfileService.getSpecialistProfile();
+        // map specialist to patient model fields we use for display
+        _profile = _profile.copyWith(
+          fullName: specialist.user?.fullName ?? specialist.fullName,
+          email: specialist.user?.email ?? _profile.email,
+          phone: specialist.user?.phone ?? _profile.phone,
+        );
+      } else {
+        final patient = await ProfileService.getPatientProfile();
+        _profile = patient;
+      }
+      notifyListeners();
+    } catch (_) {
+      // ignore errors silently; profile will stay default until available
+    }
   }
 
   // --- PERSISTANCE DE L'HISTORIQUE IA ---
@@ -243,7 +270,9 @@ class GlobalDataProvider extends ChangeNotifier {
       final List<dynamic> decodedData = json.decode(encodedData);
       _trackingHistory.clear();
       _trackingHistory.addAll(
-        decodedData.map<IATrackingData>((e) => IATrackingData.fromJson(e)).toList(),
+        decodedData
+            .map<IATrackingData>((e) => IATrackingData.fromJson(e))
+            .toList(),
       );
     } else if (token == null) {
       // Données mockées initiales avec IDs corrects pour l'analyse (seulement si non connecté)
@@ -391,14 +420,18 @@ class GlobalDataProvider extends ChangeNotifier {
               .sublist(_trackingHistory.length - 4)
               .map<double>((e) => e.currentValue.toDouble())
               .toList()
-        : _trackingHistory.map<double>((e) => e.currentValue.toDouble()).toList();
+        : _trackingHistory
+              .map<double>((e) => e.currentValue.toDouble())
+              .toList();
 
     final List<double> historicalPain = _trackingHistory.length >= 4
         ? _trackingHistory
               .sublist(_trackingHistory.length - 4)
               .map<double>((e) => (e.painLevel ?? 0.0).toDouble())
               .toList()
-        : _trackingHistory.map<double>((e) => (e.painLevel ?? 0.0).toDouble()).toList();
+        : _trackingHistory
+              .map<double>((e) => (e.painLevel ?? 0.0).toDouble())
+              .toList();
 
     // Ajouter la valeur actuelle à la fin
     historicalAngles.add(result.currentValue);
@@ -528,7 +561,7 @@ class GlobalDataProvider extends ChangeNotifier {
       final results = _trackingHistory
           .where((e) => e.exerciseId?.contains(baseId) ?? false)
           .toList();
-          
+
       if (results.isNotEmpty) {
         final last = results.last;
         // Si la session contient les deux valeurs (nouveau système)
@@ -536,9 +569,13 @@ class GlobalDataProvider extends ChangeNotifier {
           return healthy ? last.leftValue : last.rightValue;
         } else {
           // Ancien système (une session = un bras)
-          final oldResults = _trackingHistory.where(
-            (e) => (e.exerciseId?.contains(baseId) ?? false) && e.isHealthy == healthy
-          ).toList();
+          final oldResults = _trackingHistory
+              .where(
+                (e) =>
+                    (e.exerciseId?.contains(baseId) ?? false) &&
+                    e.isHealthy == healthy,
+              )
+              .toList();
           if (oldResults.isNotEmpty) return oldResults.last.currentValue;
         }
       }

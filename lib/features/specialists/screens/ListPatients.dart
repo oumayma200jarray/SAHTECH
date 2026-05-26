@@ -5,7 +5,7 @@ import 'package:sahtek/features/specialists/services/specialist_service.dart';
 import 'package:sahtek/core/widgets/specialist_bottom_nav_bar.dart';
 
 class ListePatientsPage extends StatefulWidget {
-  const ListePatientsPage({Key? key}) : super(key: key);
+  const ListePatientsPage({super.key});
 
   @override
   State<ListePatientsPage> createState() => _ListePatientsPageState();
@@ -55,8 +55,9 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
   String _initials(String name) {
     final parts = name.trim().split(' ');
     if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    if (parts.isNotEmpty && parts[0].isNotEmpty)
+    if (parts.isNotEmpty && parts[0].isNotEmpty) {
       return parts[0][0].toUpperCase();
+    }
     return '?';
   }
 

@@ -126,15 +126,27 @@ class _SpecialisteDetailsPageState extends State<SpecialisteDetailsPage> {
                         CircleAvatar(
                           radius: 60,
                           backgroundColor: const Color(0xFFE3EAFF),
-                          backgroundImage: specialist.imageUrl.isNotEmpty
+                          backgroundImage:
+                              (specialist.user?.imageUrl ?? specialist.imageUrl)
+                                  .isNotEmpty
                               ? NetworkImage(
-                                  UrlHelper.fixImageUrl(specialist.imageUrl),
+                                  UrlHelper.fixImageUrl(
+                                    specialist.user?.imageUrl ??
+                                        specialist.imageUrl,
+                                  ),
                                 )
                               : null,
-                          child: specialist.imageUrl.isEmpty
+                          child:
+                              (specialist.user?.imageUrl ?? specialist.imageUrl)
+                                  .isEmpty
                               ? Text(
-                                  specialist.fullName.isNotEmpty
-                                      ? specialist.fullName[0].toUpperCase()
+                                  (specialist.user?.fullName ??
+                                              specialist.fullName ??
+                                              'S')
+                                          .isNotEmpty
+                                      ? (specialist.user?.fullName ??
+                                                specialist.fullName!)[0]
+                                            .toUpperCase()
                                       : 'S',
                                   style: const TextStyle(
                                     fontSize: 40,
@@ -146,7 +158,9 @@ class _SpecialisteDetailsPageState extends State<SpecialisteDetailsPage> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          specialist.fullName,
+                          specialist.user?.fullName ??
+                              specialist.fullName ??
+                              '',
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -165,22 +179,24 @@ class _SpecialisteDetailsPageState extends State<SpecialisteDetailsPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            // show gender, phone and location (if available)
                             _buildStatItem(
-                              Icons.star,
-                              Colors.amber,
-                              '${specialist.rating}',
+                              Icons.person,
+                              Colors.blue,
+                              specialist.user?.gender ?? '-',
                             ),
                             const SizedBox(width: 24),
                             _buildStatItem(
-                              Icons.people,
-                              Colors.blue,
-                              '${specialist.reviewsCount} reviews',
+                              Icons.phone,
+                              Colors.green,
+                              specialist.user?.phone ?? '-',
                             ),
                             const SizedBox(width: 24),
                             _buildStatItem(
                               Icons.location_on,
                               Colors.red,
-                              specialist.location,
+                              specialist.location ??
+                                  '${specialist.latitude ?? '-'}, ${specialist.longitude ?? '-'}',
                             ),
                           ],
                         ),
@@ -200,35 +216,171 @@ class _SpecialisteDetailsPageState extends State<SpecialisteDetailsPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          specialist.bio.trim().isNotEmpty
-                              ? specialist.bio
-                              : 'specialist_bio_placeholder'.tr(
-                                  namedArgs: {'name': specialist.fullName},
+                        if (specialist.bio.trim().isNotEmpty)
+                          Text(
+                            specialist.bio,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                              height: 1.5,
+                            ),
+                          ),
+                        const SizedBox(height: 24),
+                        // Clinics (API returns clinics list)
+                        if (specialist.clinics != null &&
+                            specialist.clinics!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'clinics'.tr(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          for (final clinic in specialist.clinics!)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.local_hospital,
+                                    color: Colors.grey[600],
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          clinic.name ??
+                                              'no_primary_clinic'.tr(),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          clinic.address ?? '',
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ] else ...[
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.business,
+                                color: Colors.grey[600],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'no_primary_clinic'.tr(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[700],
-                            height: 1.5,
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+
+                        // Contact info
+                        Text(
+                          'contact_info'.tr(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 8),
                         Row(
                           children: [
                             Icon(
-                              Icons.business,
+                              Icons.email,
                               color: Colors.grey[600],
                               size: 20,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                specialist.primaryClinic?.name ??
-                                    'no_primary_clinic'.tr(),
+                                specialist.user?.email ?? '-',
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.phone,
+                              color: Colors.grey[600],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                specialist.user?.phone ?? '-',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.person,
+                              color: Colors.grey[600],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                specialist.user?.gender ?? '-',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Coordinates
+                        Text(
+                          'coordinates'.tr(),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.map, color: Colors.grey[600], size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Lat: ${specialist.latitude ?? '-'}, Lng: ${specialist.longitude ?? '-'}',
+                                style: const TextStyle(color: Colors.grey),
                               ),
                             ),
                           ],

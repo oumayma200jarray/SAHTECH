@@ -3,6 +3,8 @@ import 'package:sahtek/core/api/endpoint.dart';
 import 'package:sahtek/core/api/http_client.dart';
 import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/services/push_notification_service.dart';
+import 'package:provider/provider.dart';
+import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:sahtek/features/auth/services/auth_service.dart';
 
 class AuthController extends ChangeNotifier {
@@ -49,6 +51,15 @@ class AuthController extends ChangeNotifier {
 
         EndPoint.client.setAuthToken(response['accessToken']);
         await PushNotificationService.syncStoredTokenToBackend();
+
+        // Load profile into GlobalDataProvider so UI has fullName immediately
+        try {
+          final provider = Provider.of<GlobalDataProvider>(
+            context,
+            listen: false,
+          );
+          await provider.loadProfile();
+        } catch (_) {}
 
         final savedRole = response['role']?.toString().toUpperCase() ?? '';
         debugPrint('🔐 AuthController.signIn: saved role = "$savedRole"');

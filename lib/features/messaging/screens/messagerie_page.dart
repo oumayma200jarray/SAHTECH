@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:provider/provider.dart';
+import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:sahtek/core/widgets/custom_bottom_nav_bar.dart';
 import 'package:sahtek/services/chat_service.dart';
 import 'package:sahtek/core/utils/url_helper.dart';
@@ -80,6 +82,7 @@ class _MessageriePageState extends State<MessageriePage> {
 
   @override
   Widget build(BuildContext context) {
+    final profile = Provider.of<GlobalDataProvider>(context).profile;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
@@ -99,9 +102,10 @@ class _MessageriePageState extends State<MessageriePage> {
             padding: const EdgeInsets.only(right: 16.0),
             child: CircleAvatar(
               radius: 18,
-              backgroundImage: const NetworkImage(
-                "https://i.pravatar.cc/150?u=me",
-              ),
+              backgroundImage:
+                  UrlHelper.fixImageUrl(profile.imageUrl).isNotEmpty
+                  ? NetworkImage(UrlHelper.fixImageUrl(profile.imageUrl))
+                  : null,
               backgroundColor: Colors.grey[200],
             ),
           ),
@@ -253,57 +257,24 @@ class _MessageriePageState extends State<MessageriePage> {
         ),
         child: Row(
           children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: const Color(0xFFE3EAFF),
-                  backgroundImage:
-                      UrlHelper.fixImageUrl(conv.avatarUrl).isNotEmpty
-                      ? NetworkImage(UrlHelper.fixImageUrl(conv.avatarUrl))
-                      : null,
-                  child: UrlHelper.fixImageUrl(conv.avatarUrl).isEmpty
-                      ? Text(
-                          conv.doctorName.isNotEmpty
-                              ? conv.doctorName[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            color: Color(0xFF0D54F2),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        )
-                      : null,
-                ),
-                if (conv.isOnline)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: const Color(0xFFE3EAFF),
+              backgroundImage: UrlHelper.fixImageUrl(conv.avatarUrl).isNotEmpty
+                  ? NetworkImage(UrlHelper.fixImageUrl(conv.avatarUrl))
+                  : null,
+              child: UrlHelper.fixImageUrl(conv.avatarUrl).isEmpty
+                  ? Text(
+                      conv.doctorName.isNotEmpty
+                          ? conv.doctorName[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        color: Color(0xFF0D54F2),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
                       ),
-                    ),
-                  )
-                else
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFCBD5E1),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-              ],
+                    )
+                  : null,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -369,15 +340,6 @@ class _MessageriePageState extends State<MessageriePage> {
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
-                          ),
-                        )
-                      else if (conv.isRead)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 8.0),
-                          child: Icon(
-                            Icons.done_all,
-                            color: Color(0xFF94A3B8),
-                            size: 16,
                           ),
                         ),
                     ],

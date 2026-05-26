@@ -29,6 +29,7 @@ class SpecialistService {
       );
 
       if (data is Map<String, dynamic>) {
+        print(data['bio']);
         return SpecialistModel.fromJson(data);
       }
 
@@ -42,7 +43,9 @@ class SpecialistService {
   /// Récupère la liste des patients assignés au spécialiste connecté
   static Future<List<PatientModel>> fetchMyPatients() async {
     try {
-      final dynamic response = await EndPoint.client.get(EndPoint.doctorGetPatients);
+      final dynamic response = await EndPoint.client.get(
+        EndPoint.doctorGetPatients,
+      );
       List<dynamic> data;
       if (response is Map && response.containsKey('patients')) {
         data = response['patients'] as List<dynamic>;
@@ -180,7 +183,9 @@ class SpecialistService {
       final nameMatch = patient.fullName.toLowerCase().contains(query);
       final emailMatch = patient.email.toLowerCase().contains(query);
       final phoneMatch = patient.phone.toLowerCase().contains(query);
-      final conditionMatch = (patient.primaryCondition ?? '').toLowerCase().contains(query);
+      final conditionMatch = (patient.primaryCondition ?? '')
+          .toLowerCase()
+          .contains(query);
       return nameMatch || emailMatch || phoneMatch || conditionMatch;
     }).toList();
   }

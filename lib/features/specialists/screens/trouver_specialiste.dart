@@ -61,6 +61,8 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
           _userLocation = LatLng(position.latitude, position.longitude);
         });
         _mapController.move(_userLocation!, 13.0);
+        // Re-fetch specialists so we can compute distances and sort by proximity
+        _fetchSpecialists(query: _searchController.text);
       }
     } catch (e) {
       print("Erreur de localisation: $e");
@@ -79,8 +81,30 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
     final list = await SpecialistService.fetchSpecialists(query: query);
     if (!mounted) return;
 
+    // compute and sort by distance if user location available
+    List<SpecialistModel> sorted = List.from(list);
+    if (_userLocation != null) {
+      final dist = Distance();
+      sorted.sort((a, b) {
+        final da = dist.as(
+          LengthUnit.Kilometer,
+          _userLocation!,
+          LatLng(a.latitude, a.longitude),
+        );
+        final db = dist.as(
+          LengthUnit.Kilometer,
+          _userLocation!,
+          LatLng(b.latitude, b.longitude),
+        );
+        return da.compareTo(db);
+      });
+    } else {
+      // fallback: sort by API distance if provided
+      sorted.sort((a, b) => a.distance.compareTo(b.distance));
+    }
+
     setState(() {
-      _filteredSpecialists = list;
+      _filteredSpecialists = sorted;
     });
 
     if (_filteredSpecialists.isNotEmpty) {
@@ -92,6 +116,24 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
         13.0,
       );
     }
+  }
+
+  double _computeDistanceKm(SpecialistModel spec) {
+    if (_userLocation != null) {
+      final dist = Distance();
+      return dist.as(
+        LengthUnit.Kilometer,
+        _userLocation!,
+        LatLng(spec.latitude, spec.longitude),
+      );
+    }
+    return spec.distance;
+  }
+
+  String _distanceString(SpecialistModel spec) {
+    final km = _computeDistanceKm(spec);
+    if (km == 0 || km.isNaN) return '-';
+    return '${km.toStringAsFixed(1)} km';
   }
 
   void _onSearchChanged() {
@@ -457,33 +499,7 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                color: Colors.amber,
-                                size: 12,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                spec.rating.toString(),
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        const SizedBox(width: 8),
                       ],
                     ),
                     Text(
@@ -501,7 +517,7 @@ class _TrouverSpecialistePageState extends State<TrouverSpecialistePage> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            '${spec.distance} km • ${spec.availability}',
+                            '${_distanceString(spec)} • ${spec.availability}',
                             style: const TextStyle(
                               color: Colors.grey,
                               fontSize: 11,

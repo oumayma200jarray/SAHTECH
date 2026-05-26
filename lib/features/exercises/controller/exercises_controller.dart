@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:sahtek/core/api/endpoint.dart';
 import 'package:sahtek/core/config/app_config.dart';
 import 'package:sahtek/core/services/storage_service.dart';
@@ -101,44 +101,49 @@ class ExercisesController extends ChangeNotifier {
     isSaving = true;
     notifyListeners();
     try {
-      final payload = <String, dynamic>{
-        'name': name,
-        'description': description,
-        'isPublic': isPublic,
-        'category': categories,
-        'side': sides,
-        if (videoUrl.isNotEmpty) 'videoUrl': videoUrl,
-      };
-
       ExerciseModel exercise;
+
       if (videoFile != null) {
-        exercise = existing != null
-            ? await _multipartRequest(
-                'PATCH',
-                EndPoint.doctorExerciseById(existing.exerciseId),
-                payload,
-                videoFile,
-              )
-            : await _multipartRequest(
-                'POST',
-                EndPoint.doctorExercises,
-                payload,
-                videoFile,
-              );
+        // File path: raw multipart (mirrors React FormData)
+        exercise = await _streamMultipart(
+          method: existing != null ? 'PATCH' : 'POST',
+          endpoint: existing != null
+              ? EndPoint.doctorExerciseById(existing.exerciseId)
+              : EndPoint.doctorExercises,
+          name: name,
+          description: description,
+          categories: categories,
+          sides: sides,
+          isPublic: isPublic,
+          videoUrl: videoUrl.isNotEmpty ? videoUrl : null,
+          videoFile: videoFile,
+        );
       } else {
+        // JSON path (mirrors React: api.post(url, payload) with plain object)
+        debugPrint('📤 POST JSON → ${EndPoint.doctorExercises}');
+        final payload = <String, dynamic>{
+          'name': name,
+          'description': description,
+          'isPublic': isPublic,
+          'category': categories,
+          'side': sides,
+          if (videoUrl.isNotEmpty) 'videoUrl': videoUrl,
+        };
+
+        final dynamic data;
         if (existing != null) {
-          final data = await EndPoint.client.patch(
+          data = await EndPoint.client.patch(
             EndPoint.doctorExerciseById(existing.exerciseId),
             body: payload,
           );
-          exercise = ExerciseModel.fromJson(data as Map<String, dynamic>);
         } else {
-          final data = await EndPoint.client.post(
+          data = await EndPoint.client.post(
             EndPoint.doctorExercises,
             body: payload,
           );
-          exercise = ExerciseModel.fromJson(data as Map<String, dynamic>);
         }
+        debugPrint('📥 response: $data');
+        exercise = ExerciseModel.fromJson(data as Map<String, dynamic>);
       }
 
       if (existing != null) {
@@ -197,43 +202,122 @@ class ExercisesController extends ChangeNotifier {
     }
   }
 
-  // ─── Multipart helper (POST or PATCH) ────────────────────────────────────
-  Future<ExerciseModel> _multipartRequest(
-    String method,
-    String endpoint,
-    Map<String, dynamic> data,
-    File file,
-  ) async {
+  // ─── Raw multipart using dart:io HttpClient ─────────────────────────────
+  // Uses HttpClientRequest.addStream() which pauses the file reader whenever
+  // the socket buffer is full (backpressure). This means only one 64 KB chunk
+  // lives in RAM at a time — the entire file is never buffered in memory.
+  //
+  // Text fields have NO Content-Type header → busboy emits 'field' events →
+  // multer's fileFilter is never invoked for them.
+  // Repeated keys (category × N, side × N) → req.body arrays in multer.
+  Future<ExerciseModel> _streamMultipart({
+    required String method,
+    required String endpoint,
+    required String name,
+    required String description,
+    required List<String> categories,
+    required List<String> sides,
+    required bool isPublic,
+    String? videoUrl,
+    required File videoFile,
+  }) async {
     final token = await StorageService.getAccessToken();
-    final url = Uri.parse('${AppConfig.apiBaseUrl}/$endpoint');
-    final request = http.MultipartRequest(method, url);
-    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    final boundary = 'sahtech${DateTime.now().millisecondsSinceEpoch}';
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/$endpoint');
+    debugPrint('📤 _streamMultipart $method $uri');
 
-    request.fields['name'] = data['name']?.toString() ?? '';
-    request.fields['description'] = data['description']?.toString() ?? '';
-    request.fields['isPublic'] = (data['isPublic'] == true).toString();
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 30);
 
-    // Send arrays as repeated multipart bytes (no filename = form field)
-    for (final cat in (data['category'] as List<String>? ?? [])) {
-      request.files.add(
-        http.MultipartFile.fromBytes('category', utf8.encode(cat)),
+    try {
+      final req = await client.openUrl(method, uri);
+
+      req.headers
+        ..set(
+          HttpHeaders.contentTypeHeader,
+          'multipart/form-data; boundary=$boundary',
+        )
+        ..set(HttpHeaders.acceptHeader, 'application/json');
+      if (token != null) {
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      }
+
+      // Build all text fields into one UTF-8 buffer (single write call)
+      final textParts = BytesBuilder();
+      void addField(String key, String value) {
+        textParts.add(utf8.encode('--$boundary\r\n'));
+        textParts.add(
+          utf8.encode('Content-Disposition: form-data; name="$key"\r\n'),
+        );
+        textParts.add(utf8.encode('\r\n'));
+        textParts.add(utf8.encode('$value\r\n'));
+      }
+
+      addField('name', name);
+      addField('description', description);
+      addField('isPublic', isPublic.toString());
+      if (videoUrl != null) {
+        addField('videoUrl', videoUrl);
+      }
+      for (final cat in categories) {
+        addField('category', cat);
+      }
+      for (final side in sides) {
+        addField('side', side);
+      }
+
+      final fileName = videoFile.path.split('/').last;
+      final mimeType = _videoMimeType(videoFile.path);
+      textParts.add(utf8.encode('--$boundary\r\n'));
+      textParts.add(
+        utf8.encode(
+          'Content-Disposition: form-data; name="video"; filename="$fileName"\r\n',
+        ),
       );
-    }
-    for (final side in (data['side'] as List<String>? ?? [])) {
-      request.files.add(
-        http.MultipartFile.fromBytes('side', utf8.encode(side)),
-      );
-    }
+      textParts.add(utf8.encode('Content-Type: $mimeType\r\n'));
+      textParts.add(utf8.encode('\r\n'));
 
-    request.files.add(await http.MultipartFile.fromPath('video', file.path));
+      // Send all text headers in one chunk
+      req.add(textParts.takeBytes());
 
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return ExerciseModel.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
+      // Stream the video with backpressure: addStream() pauses the file reader
+      // when the socket buffer is full so the entire file is never in RAM.
+      await req
+          .addStream(videoFile.openRead())
+          .timeout(
+            const Duration(minutes: 5),
+            onTimeout: () => throw Exception('Video upload timed out'),
+          );
+
+      req.add(utf8.encode('\r\n--$boundary--\r\n'));
+      debugPrint('📤 body sent, awaiting server response…');
+
+      final res = await req.close().timeout(
+        const Duration(minutes: 1),
+        onTimeout: () => throw Exception('Server response timed out'),
       );
+      final body = await utf8.decodeStream(res);
+      debugPrint('📥 ${res.statusCode}: $body');
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return ExerciseModel.fromJson(jsonDecode(body) as Map<String, dynamic>);
+      }
+      throw Exception('Multipart failed: ${res.statusCode} — $body');
+    } finally {
+      client.close();
     }
-    throw Exception('Upload failed: ${response.statusCode}');
+  }
+
+  String _videoMimeType(String path) {
+    final ext = path.toLowerCase().split('.').last;
+    return const {
+          'mp4': 'video/mp4',
+          'mov': 'video/quicktime',
+          'avi': 'video/x-msvideo',
+          'mkv': 'video/x-matroska',
+          'webm': 'video/webm',
+          '3gp': 'video/3gpp',
+        }[ext] ??
+        'video/mp4';
   }
 }
