@@ -65,6 +65,23 @@ class DoctorApiService {
     }
   }
 
+    static Future<List<ClinicModel>> getDoctorClinics() async {
+    try {
+      final data = await EndPoint.client.get(EndPoint.doctorClinics);
+      if (data == null) return [];
+      final list = (data is Map) ? data['data'] : data;
+      if (list is List) {
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(ClinicModel.fromJson)
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   static Future<ClinicModel> createClinic(Map<String, dynamic> body) async {
     final data = await EndPoint.client.post(
       EndPoint.doctorClinics,

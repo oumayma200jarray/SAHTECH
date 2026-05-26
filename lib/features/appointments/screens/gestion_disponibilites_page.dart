@@ -1,19 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:sahtek/models/availability_model.dart';
-import 'package:sahtek/models/clinic_model.dart';
-import 'package:sahtek/core/widgets/buttons.dart';
-// removed unused import: availability_calendar_grid
-import 'package:sahtek/features/appointments/widgets/availability_slot_card.dart';
 import 'package:sahtek/core/widgets/specialist_bottom_nav_bar.dart';
 import 'package:sahtek/features/appointments/services/doctor_api_service.dart';
-// intl functionality is available via easy_localization import
-
-// API calls are handled in services/doctor_api_service.dart
+import 'package:sahtek/models/clinic_model.dart';
 
 class GestionDisponibilitesPage extends StatefulWidget {
   const GestionDisponibilitesPage({super.key});
@@ -24,21 +15,30 @@ class GestionDisponibilitesPage extends StatefulWidget {
 }
 
 class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
-  final List<AvailabilitySlot> _slots = [];
-  final List<Map<String, dynamic>> _appointments = [];
-  bool _loading = true;
+  // ─── State ───────────────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _slots = [];
+  List<Map<String, dynamic>> _appointments = [];
+  bool _loadingSlots = true;
+  bool _loadingAppointments = true;
   String? _updatingAppointmentId;
-  final Map<String, String> _slotDateKeys = {}; // slotId -> YYYY-MM-DD
   late String _selectedDayKey;
+  String _appointmentFilter = 'ALL';
   final DateTime _today = DateTime.now();
-  late final ScrollController _slotsScrollController;
+  final ScrollController _slotsScrollController = ScrollController();
+
+  static const _filters = [
+    {'key': 'ALL', 'label': 'Tous'},
+    {'key': 'SCHEDULED', 'label': 'Nouveaux'},
+    {'key': 'ACEPTED', 'label': 'Acceptés'},
+    {'key': 'COMPLETED', 'label': 'Terminés'},
+    {'key': 'REJECTED', 'label': 'Rejetés'},
+    {'key': 'CANCELLED', 'label': 'Annulés'},
+  ];
 
   @override
   void initState() {
     super.initState();
-    _selectedDayKey =
-        '${_today.year.toString().padLeft(4, '0')}-${_today.month.toString().padLeft(2, '0')}-${_today.day.toString().padLeft(2, '0')}';
-    _slotsScrollController = ScrollController();
+    _selectedDayKey = _toDateKey(_today);
     _loadData();
   }
 
@@ -48,137 +48,258 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
     super.dispose();
   }
 
-  DateTime _shiftHour(DateTime value) => value.add(const Duration(hours: 1));
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
+  String _toDateKey(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  // Handles both int (API sends 8) and ISO string (API stores DateTime)
+  String _formatHour(dynamic value) {
+    if (value == null) return '-';
+    if (value is int) return '${value.toString().padLeft(2, '0')}:00';
+    final dt = DateTime.tryParse(value.toString());
+    if (dt != null) return DateFormat('HH:mm').format(dt.toLocal());
+    return '-';
+  }
+
+  int _toHour(dynamic value) {
+    if (value is int) return value;
+    final dt = DateTime.tryParse(value.toString());
+    if (dt != null) return dt.toLocal().hour;
+    return int.tryParse(value.toString().split(':').first) ?? 8;
+  }
+
+  // Prefer the date field; fall back to startTime ISO if date is absent
+  String _resolveDate(dynamic rawDate, dynamic rawStart) {
+    final fromDate = DateTime.tryParse((rawDate ?? '').toString());
+    if (fromDate != null) return _toDateKey(fromDate.toLocal());
+    final fromStart = DateTime.tryParse((rawStart ?? '').toString());
+    if (fromStart != null) return _toDateKey(fromStart.toLocal());
+    return _toDateKey(_today);
+  }
+
+  String _dateLabel(String key) {
+    final parts = key.split('-');
+    if (parts.length == 3) return '${parts[2]}/${parts[1]}/${parts[0]}';
+    return key;
+  }
+
+  // ─── Data loading ─────────────────────────────────────────────────────────────
+
+  Future<void> _loadSlots() async {
     try {
-      final rawSlots = await DoctorApiService.getDailySlots();
-      final apps = await DoctorApiService.getAppointments();
-      final slots = rawSlots.map<AvailabilitySlot>((item) {
-        final id =
-            (item['availabilityId'] ??
-                    item['id'] ??
-                    DateTime.now().millisecondsSinceEpoch.toString())
-                .toString();
-        final rawStart = (item['startTime'] ?? item['date'] ?? '').toString();
-        DateTime? parsedStart = DateTime.tryParse(rawStart);
-        final parsedDate = DateTime.tryParse((item['date'] ?? '').toString());
-        final date = parsedStart ?? parsedDate ?? DateTime.now();
-        final start = _shiftHour(parsedStart ?? date);
-        final end = _shiftHour(
-          DateTime.tryParse((item['endTime'] ?? '').toString()) ??
-              (parsedStart ?? date).add(const Duration(hours: 1)),
-        );
-        final startLabel = DateFormat('HH:mm').format(start);
-        final endLabel = DateFormat('HH:mm').format(end);
-
-        // compute dateKey YYYY-MM-DD (prefer iso in rawStart if present)
-        String dateKey;
-        final isoLike = RegExp(r'^\d{4}-\d{2}-\d{2}');
-        if (isoLike.hasMatch(rawStart)) {
-          dateKey = rawStart.substring(0, 10);
-        } else if (parsedDate != null) {
-          dateKey =
-              '${parsedDate.year.toString().padLeft(4, '0')}-${parsedDate.month.toString().padLeft(2, '0')}-${parsedDate.day.toString().padLeft(2, '0')}';
-        } else {
-          dateKey =
-              '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-        }
-        _slotDateKeys[id] = dateKey;
-
-        final place = (item['place'] ?? '').toString().toLowerCase();
-        final type =
-            (place.contains('video') ||
-                place.contains('tele') ||
-                place.contains('online'))
-            ? AvailabilityType.video
-            : AvailabilityType.cabinet;
-
-        return AvailabilitySlot(
-          id: id,
-          dayOfWeek: start.weekday,
-          startTime: startLabel,
-          endTime: endLabel,
-          type: type,
-        );
-      }).toList();
-
-      final appointments = apps.map<Map<String, dynamic>>((item) {
-        final slot =
-            (item['AvailableSlot'] as Map?)?.cast<String, dynamic>() ?? {};
-        final parsedStart = DateTime.tryParse(
-          (slot['startTime'] ?? '').toString(),
-        );
-        final parsedEnd = DateTime.tryParse((slot['endTime'] ?? '').toString());
-        final displayStart = parsedStart != null
-            ? _shiftHour(parsedStart)
-            : null;
-        final displayEnd = parsedEnd != null ? _shiftHour(parsedEnd) : null;
-        final displayDate =
-            displayStart ??
-            DateTime.tryParse((slot['date'] ?? '').toString()) ??
-            DateTime.now();
-
-        return {
-          'appointmentId': item['appointmentId'],
-          'status': item['status'],
-          'reason': item['reason'] ?? '-',
-          'patientName': item['patient']?['user']?['fullName'] ?? 'Patient',
-          'patientImage': item['patient']?['user']?['imageUrl'] ?? '',
-          'date': displayDate,
-          'dateLabel': DateFormat.yMMMd().format(displayDate),
-          'startLabel': displayStart != null
-              ? DateFormat('HH:mm').format(displayStart)
-              : '-',
-          'endLabel': displayEnd != null
-              ? DateFormat('HH:mm').format(displayEnd)
-              : '-',
-          'place': slot['place']?.toString() ?? '-',
-        };
-      }).toList();
-
-      setState(() {
-        _slots
-          ..clear()
-          ..addAll(slots);
-        _appointments
-          ..clear()
-          ..addAll(appointments);
-      });
+      setState(() => _loadingSlots = true);
+      final raw = await DoctorApiService.getDailySlots();
+      final list =
+          raw.map<Map<String, dynamic>>((item) {
+            final id = (item['availabilityId'] ?? item['id'] ?? '').toString();
+            final dateKey = _resolveDate(item['date'], item['startTime']);
+            return {
+              'id': id,
+              'dateKey': dateKey,
+              'dateLabel': _dateLabel(dateKey),
+              'startLabel': _formatHour(item['startTime']),
+              'endLabel': _formatHour(item['endTime']),
+              'startHour': _toHour(item['startTime']),
+              'endHour': _toHour(item['endTime']),
+              'rawDate': (item['date'] ?? dateKey).toString(),
+              'isBooked': item['isBooked'] == true,
+              'place': (item['place'] ?? '-').toString(),
+            };
+          }).toList()..sort((a, b) {
+            final ka =
+                '${a['dateKey']}${(a['startHour'] as int).toString().padLeft(2, '0')}';
+            final kb =
+                '${b['dateKey']}${(b['startHour'] as int).toString().padLeft(2, '0')}';
+            return ka.compareTo(kb);
+          });
+      if (mounted) setState(() => _slots = list);
     } catch (e) {
-      // ignore errors for now; keep local fallback
+      debugPrint('Failed to load slots: $e');
+    } finally {
+      if (mounted) setState(() => _loadingSlots = false);
     }
-    setState(() => _loading = false);
   }
 
-  Future<void> _refreshPage() async {
-    await _loadData();
+  Future<void> _loadAppointments() async {
+    try {
+      setState(() => _loadingAppointments = true);
+      final raw = await DoctorApiService.getAppointments();
+      final list =
+          raw.map<Map<String, dynamic>>((item) {
+            final slot =
+                (item['AvailableSlot'] as Map?)?.cast<String, dynamic>() ?? {};
+            final dateKey = _resolveDate(slot['date'], slot['startTime']);
+            return {
+              'appointmentId': (item['appointmentId'] ?? '').toString(),
+              'status': (item['status'] ?? 'SCHEDULED').toString(),
+              'reason': (item['reason'] ?? '-').toString(),
+              'patientName':
+                  item['patient']?['user']?['fullName']?.toString() ??
+                  'Patient',
+              'patientImage':
+                  item['patient']?['user']?['imageUrl']?.toString() ?? '',
+              'dateLabel': _dateLabel(dateKey),
+              'startLabel': _formatHour(slot['startTime']),
+              'endLabel': _formatHour(slot['endTime']),
+              'place': (slot['place'] ?? '-').toString(),
+            };
+          }).toList()..sort(
+            (a, b) =>
+                (b['dateLabel'] as String).compareTo(a['dateLabel'] as String),
+          );
+      if (mounted) setState(() => _appointments = list);
+    } catch (e) {
+      debugPrint('Failed to load appointments: $e');
+    } finally {
+      if (mounted) setState(() => _loadingAppointments = false);
+    }
   }
+
+  Future<void> _loadData() => Future.wait([_loadSlots(), _loadAppointments()]);
+
+  // ─── Computed ─────────────────────────────────────────────────────────────────
+
+  Map<String, List<Map<String, dynamic>>> get _slotsByDay {
+    final map = <String, List<Map<String, dynamic>>>{};
+    for (final s in _slots) {
+      map.putIfAbsent(s['dateKey'] as String, () => []).add(s);
+    }
+    return map;
+  }
+
+  List<Map<String, dynamic>> get _filteredAppointments =>
+      _appointmentFilter == 'ALL'
+      ? _appointments
+      : _appointments.where((a) => a['status'] == _appointmentFilter).toList();
+
+  Map<String, int> get _appointmentCounts {
+    final counts = <String, int>{'ALL': 0};
+    for (final a in _appointments) {
+      counts['ALL'] = (counts['ALL'] ?? 0) + 1;
+      final s = a['status'] as String;
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  // ─── Actions ──────────────────────────────────────────────────────────────────
+
+  Future<void> _updateAppointment(String id, String status) async {
+    try {
+      setState(() => _updatingAppointmentId = id);
+      await DoctorApiService.modifyAppointment(id, {
+        'appointmentId': id,
+        'status': status,
+      });
+      await _loadAppointments();
+      // Rejecting frees the slot → refresh slots too
+      if (status == 'REJECTED') await _loadSlots();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible de modifier le rendez-vous'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _updatingAppointmentId = null);
+    }
+  }
+
+  void _showAddSlotSheet() async {
+    final payload = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _AddSlotSheet(),
+    );
+    if (payload == null || !mounted) return;
+    try {
+      await DoctorApiService.createDailySlots(payload);
+      await _loadSlots();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Créneau ajouté avec succès')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Impossible d'ajouter le créneau")),
+        );
+      }
+    }
+  }
+
+  void _showEditSlotSheet(Map<String, dynamic> slot) async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _EditSlotSheet(slot: slot),
+    );
+    if (result == null || !mounted) return;
+
+    final id = slot['id'] as String;
+
+    if (result['_delete'] == true) {
+      try {
+        await DoctorApiService.deleteDailySlots(id);
+        await _loadSlots();
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Créneau supprimé')));
+        }
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Impossible de supprimer le créneau')),
+          );
+        }
+      }
+      return;
+    }
+
+    try {
+      await DoctorApiService.updateDailySlots(id, result);
+      await _loadSlots();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Créneau mis à jour')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de modifier le créneau')),
+        );
+      }
+    }
+  }
+
+  // ─── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<GlobalDataProvider>(context);
-    final slots = _slots.isNotEmpty ? _slots : provider.availabilitySlots;
-    // group slots by dateKey using _slotDateKeys
-    Map<String, List<AvailabilitySlot>> slotsByDay = {};
-    for (final s in slots) {
-      final key = _slotDateKeys[s.id] ?? '${s.dayOfWeek}';
-      slotsByDay.putIfAbsent(key, () => []).add(s);
-    }
-    // selected day key already initialized in initState
-    // show yesterday + today + the next 6 days
+    final slotsByDay = _slotsByDay;
     final weekStart = DateTime(
       _today.year,
       _today.month,
       _today.day,
     ).subtract(const Duration(days: 1));
     final weekDays = List<DateTime>.generate(8, (i) {
-      final day = weekStart.add(Duration(days: i));
-      return DateTime(day.year, day.month, day.day);
+      final d = weekStart.add(Duration(days: i));
+      return DateTime(d.year, d.month, d.day);
     });
-    String formatDateKey(DateTime d) =>
-        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7FF),
@@ -211,31 +332,24 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
           ),
           SafeArea(
             child: RefreshIndicator(
-              onRefresh: _refreshPage,
+              color: const Color(0xFF0D54F2),
+              onRefresh: _loadData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildTopHeader(slots.length),
+                    const SizedBox(height: 12),
+                    _buildHeader(),
                     const SizedBox(height: 18),
-                    _buildHeroCard(),
-                    const SizedBox(height: 18),
-                    _buildWeeklySection(
-                      context,
-                      weekDays,
-                      slotsByDay,
-                      formatDateKey,
-                    ),
+                    _buildWeeklyCalendar(weekDays, slotsByDay),
                     const SizedBox(height: 20),
-                    _buildSlotsPanel(context, slotsByDay),
+                    _buildSlotsPanel(slotsByDay),
                     const SizedBox(height: 24),
                     _buildInfoBox(),
                     const SizedBox(height: 28),
-                    _buildSectionHeader('appointments'.tr()),
-                    const SizedBox(height: 12),
-                    ..._appointments.map(_buildAppointmentTile),
+                    _buildAppointmentsSection(),
                     const SizedBox(height: 48),
                   ],
                 ),
@@ -247,7 +361,7 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
     );
   }
 
-  Widget _buildTopHeader(int count) {
+  Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,13 +372,13 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
             Text(
               'availability_mgmt_title'.tr(),
               style: const TextStyle(
-                fontSize: 30,
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF0F172A),
                 letterSpacing: -0.4,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -273,7 +387,7 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
                 border: Border.all(color: const Color(0xFFDAE7FF)),
               ),
               child: Text(
-                '$count creneaux',
+                '${_slots.length} créneau${_slots.length > 1 ? 'x' : ''}',
                 style: const TextStyle(
                   color: Color(0xFF475569),
                   fontSize: 12,
@@ -283,68 +397,30 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
             ),
           ],
         ),
+        ElevatedButton.icon(
+          onPressed: _showAddSlotSheet,
+          icon: const Icon(Icons.add, size: 18),
+          label: Text('add_slot'.tr()),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0D54F2),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildHeroCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFDCE7FF)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x130D54F2),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F5FF),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.calendar_month, color: Color(0xFF0D54F2)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Gestion des créneaux',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Swipe dans la box pour voir plus de créneaux et actualise la page en tirant vers le bas.',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeeklySection(
-    BuildContext context,
+  Widget _buildWeeklyCalendar(
     List<DateTime> weekDays,
-    Map<String, List<AvailabilitySlot>> slotsByDay,
-    String Function(DateTime) formatDateKey,
+    Map<String, List<Map<String, dynamic>>> slotsByDay,
   ) {
+    // weekday is 1=Mon … 7=Sun
+    const dayNames = ['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -355,98 +431,101 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(child: _buildSectionHeader('weekly_slots'.tr())),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () => _showSlotDialog(context),
-                icon: const Icon(Icons.add, size: 18),
-                label: Text('add_slot'.tr()),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D54F2),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            'weekly_slots'.tr(),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A1C1E),
+            ),
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: weekDays.map((day) {
-                final dayKey = formatDateKey(day);
+                final dayKey = _toDateKey(day);
                 final daySlots = slotsByDay[dayKey] ?? [];
-                final isToday = dayKey == formatDateKey(_today);
+                final isToday = dayKey == _toDateKey(_today);
                 final isSelected = dayKey == _selectedDayKey;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedDayKey = dayKey),
                   child: Container(
-                    width: 96,
+                    width: 88,
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFFEEF2FF)
                           : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isToday
+                        color: isSelected
+                            ? const Color(0xFF0D54F2)
+                            : isToday
                             ? const Color(0xFFBBC7FF)
                             : Colors.grey.withOpacity(0.12),
+                        width: isSelected ? 2 : 1,
                       ),
                     ),
                     child: Column(
                       children: [
                         Text(
-                          DateFormat('EEE').format(day),
+                          dayNames[day.weekday],
                           style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[700],
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isToday
+                                ? const Color(0xFF0D54F2)
+                                : Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${day.day}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isToday
+                                ? const Color(0xFF0D54F2)
+                                : const Color(0xFF0F172A),
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text(
-                          '${day.day}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (daySlots.isNotEmpty)
-                          ...daySlots
-                              .take(2)
-                              .map(
-                                (s) => Container(
-                                  margin: const EdgeInsets.only(top: 4),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                    horizontal: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF3F51B5),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    s.startTime,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                    ),
+                        ...daySlots
+                            .take(2)
+                            .map(
+                              (s) => Container(
+                                margin: const EdgeInsets.only(top: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 3,
+                                  horizontal: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0D54F2),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Text(
+                                  s['startLabel'] as String,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
                                   ),
                                 ),
-                              )
-                        else
-                          const SizedBox.shrink(),
+                              ),
+                            ),
+                        if (daySlots.length > 2)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Text(
+                              '+${daySlots.length - 2}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF0D54F2),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -459,35 +538,18 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
     );
   }
 
-  // sync badge removed
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF1A1C1E),
-      ),
-    );
-  }
-
-  Widget _buildSlotsPanel(
-    BuildContext context,
-    Map<String, List<AvailabilitySlot>> slotsByDay,
-  ) {
-    final selectedDaySlots = slotsByDay[_selectedDayKey] ?? [];
-
+  Widget _buildSlotsPanel(Map<String, List<Map<String, dynamic>>> slotsByDay) {
+    final daySlots = slotsByDay[_selectedDayKey] ?? [];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Creneaux du ${DateFormat.yMMMMd().format(DateTime.parse(_selectedDayKey))}',
+          'Créneaux du ${_dateLabel(_selectedDayKey)}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
         Container(
-          height: 392,
+          height: 380,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -501,13 +563,24 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
               ),
             ],
           ),
-          child: _loading
+          child: _loadingSlots
               ? const Center(child: CircularProgressIndicator())
-              : selectedDaySlots.isEmpty
+              : daySlots.isEmpty
               ? Center(
-                  child: Text(
-                    'Aucun creneau pour ce jour',
-                    style: TextStyle(color: Colors.grey[600]),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 40,
+                        color: Colors.grey[300],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Aucun créneau pour ce jour',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
                   ),
                 )
               : Scrollbar(
@@ -516,16 +589,9 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
                   child: ListView.separated(
                     controller: _slotsScrollController,
                     physics: const BouncingScrollPhysics(),
-                    itemCount: selectedDaySlots.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final slot = selectedDaySlots[index];
-                      return AvailabilitySlotCard(
-                        slot: slot,
-                        onEdit: () => _handleEditSlot(context, slot),
-                        onDelete: () => _deleteSlot(slot.id),
-                      );
-                    },
+                    itemCount: daySlots.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => _buildSlotCard(daySlots[i]),
                   ),
                 ),
         ),
@@ -533,216 +599,88 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
     );
   }
 
-  void _handleEditSlot(BuildContext context, AvailabilitySlot slot) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => _SlotDialog(existingSlot: slot),
-    );
-    if (result == null) return;
-    // result should contain either create/update instructions
-    if (result['action'] == 'update' && result['id'] != null) {
-      await DoctorApiService.updateDailySlots(result['id'], result['payload']);
-      await _loadData();
-    }
-  }
-
-  void _showSlotDialog(
-    BuildContext context, {
-    AvailabilitySlot? existingSlot,
-  }) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => _SlotDialog(existingSlot: existingSlot),
-    );
-    if (result == null) return;
-    if (result['action'] == 'create') {
-      await DoctorApiService.createDailySlots(result['payload']);
-      await _loadData();
-    }
-  }
-
-  Future<void> _deleteSlot(String slotId) async {
-    await DoctorApiService.deleteDailySlots(slotId);
-    await _loadData();
-  }
-
-  Widget _buildAppointmentTile(Map<String, dynamic> app) {
-    final patient = app['patientName'] ?? '—';
-    final date = app['dateLabel'] ?? '';
-    final timeRange = '${app['startLabel'] ?? '-'} - ${app['endLabel'] ?? '-'}';
-    final status = (app['status'] ?? 'SCHEDULED').toString();
-    final id = app['appointmentId']?.toString() ?? '';
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  patient,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(date),
-                const SizedBox(height: 6),
-                Text(timeRange, style: TextStyle(color: Colors.grey[700])),
-                const SizedBox(height: 6),
-                Text(status, style: TextStyle(color: Colors.grey[700])),
-              ],
+  Widget _buildSlotCard(Map<String, dynamic> slot) {
+    final isBooked = slot['isBooked'] as bool;
+    return InkWell(
+      onTap: () => _showEditSlotSheet(slot),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isBooked
+                ? const Color(0xFFFF9800).withOpacity(0.3)
+                : const Color(0xFF0D54F2).withOpacity(0.15),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.calendar_today,
+                color: Color(0xFF0D54F2),
+                size: 20,
+              ),
             ),
-          ),
-          _buildAppointmentActions(id, status),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAppointmentActions(String id, String status) {
-    final isUpdating = _updatingAppointmentId == id;
-
-    void handle(String newStatus) async {
-      await _updateAppointmentStatus(id, newStatus);
-    }
-
-    if (status == 'SCHEDULED') {
-      return Column(
-        children: [
-          _statusActionButton(
-            label: 'Accepter',
-            icon: Icons.check_circle_outline,
-            background: const Color(0xFF0EA5A4),
-            foreground: Colors.white,
-            onPressed: isUpdating ? null : () => handle('ACEPTED'),
-          ),
-          const SizedBox(height: 8),
-          _statusActionButton(
-            label: 'Rejeter',
-            icon: Icons.cancel_outlined,
-            background: const Color(0xFFF43F5E),
-            foreground: Colors.white,
-            onPressed: isUpdating ? null : () => handle('REJECTED'),
-          ),
-        ],
-      );
-    }
-
-    if (status == 'ACEPTED') {
-      // accepted state: can complete or cancel
-      return Column(
-        children: [
-          _statusActionButton(
-            label: 'Marquer terminé',
-            icon: Icons.task_alt_rounded,
-            background: const Color(0xFF16A34A),
-            foreground: Colors.white,
-            onPressed: isUpdating ? null : () => handle('COMPLETED'),
-          ),
-          const SizedBox(height: 8),
-          _statusGhostButton(
-            label: 'Annuler',
-            icon: Icons.close_rounded,
-            onPressed: isUpdating ? null : () => handle('CANCELLED'),
-          ),
-        ],
-      );
-    }
-
-    // For REJECTED, COMPLETED, CANCELLED allow changing via menu
-    return PopupMenuButton<String>(
-      onSelected: (value) async => await _updateAppointmentStatus(id, value),
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'SCHEDULED',
-          child: Text('Reprogrammer (SCHEDULED)'),
-        ),
-        const PopupMenuItem(value: 'ACEPTED', child: Text('Marquer accepté')),
-        const PopupMenuItem(value: 'REJECTED', child: Text('Marquer rejeté')),
-        const PopupMenuItem(value: 'COMPLETED', child: Text('Marquer terminé')),
-        const PopupMenuItem(value: 'CANCELLED', child: Text('Marquer annulé')),
-      ],
-      child: const Icon(Icons.more_vert),
-    );
-  }
-
-  Widget _statusActionButton({
-    required String label,
-    required IconData icon,
-    required Color background,
-    required Color foreground,
-    required VoidCallback? onPressed,
-  }) {
-    return SizedBox(
-      width: 140,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18, color: foreground),
-        label: Text(
-          label,
-          style: TextStyle(color: foreground, fontWeight: FontWeight.w700),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${slot['startLabel']} — ${slot['endLabel']}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    slot['place'] as String,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            _buildStatusPill(isBooked ? 'Réservé' : 'Disponible', isBooked),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, color: Color(0xFFB0B7C3), size: 20),
+          ],
         ),
       ),
     );
   }
 
-  Widget _statusGhostButton({
-    required String label,
-    required IconData icon,
-    required VoidCallback? onPressed,
-  }) {
-    return SizedBox(
-      width: 140,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18, color: const Color(0xFF0F172A)),
-        label: Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF0F172A),
-            fontWeight: FontWeight.w700,
-          ),
+  Widget _buildStatusPill(String label, bool isBooked) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: isBooked ? const Color(0xFFFFF3E0) : const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isBooked ? const Color(0xFFFF9800) : const Color(0xFF4CAF50),
+          width: 0.8,
         ),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0xFFD6E4FF)),
-          backgroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: isBooked ? const Color(0xFFE65100) : const Color(0xFF2E7D32),
         ),
       ),
     );
-  }
-
-  Future<void> _updateAppointmentStatus(
-    String appointmentId,
-    String status,
-  ) async {
-    try {
-      setState(() => _updatingAppointmentId = appointmentId);
-      await DoctorApiService.modifyAppointment(appointmentId, {
-        'appointmentId': appointmentId,
-        'status': status,
-      });
-      await _loadData();
-    } finally {
-      setState(() => _updatingAppointmentId = null);
-    }
   }
 
   Widget _buildInfoBox() {
@@ -786,22 +724,399 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
       ),
     );
   }
+
+  Widget _buildAppointmentsSection() {
+    final counts = _appointmentCounts;
+    final filtered = _filteredAppointments;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Rendez-vous patients',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Gérer les demandes et suivis',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${counts['ALL'] ?? 0} total',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0D54F2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        // Filter chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _filters.map((f) {
+              final key = f['key']!;
+              final isActive = _appointmentFilter == key;
+              final count = counts[key] ?? 0;
+              return GestureDetector(
+                onTap: () => setState(() => _appointmentFilter = key),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isActive ? const Color(0xFF0D54F2) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isActive
+                          ? const Color(0xFF0D54F2)
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Text(
+                    '${f['label']} ($count)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isActive ? Colors.white : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_loadingAppointments)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (filtered.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Text(
+                'Aucun rendez-vous pour ce filtre',
+                style: TextStyle(color: Colors.grey[500]),
+              ),
+            ),
+          )
+        else
+          ...filtered.map(_buildAppointmentCard),
+      ],
+    );
+  }
+
+  Widget _buildAppointmentCard(Map<String, dynamic> app) {
+    final id = app['appointmentId'] as String;
+    final status = app['status'] as String;
+    final isUpdating = _updatingAppointmentId == id;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Patient row + badge
+          Row(
+            children: [
+              _buildAvatar(
+                app['patientImage'] as String,
+                app['patientName'] as String,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      app['patientName'] as String,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      app['reason'] as String,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              _buildAppointmentBadge(status),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Date / time / place
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              _infoChip(
+                Icons.calendar_today_outlined,
+                app['dateLabel'] as String,
+              ),
+              _infoChip(
+                Icons.access_time,
+                '${app['startLabel']} — ${app['endLabel']}',
+              ),
+              _infoChip(Icons.location_on_outlined, app['place'] as String),
+            ],
+          ),
+          // Action buttons
+          if (isUpdating) ...[
+            const SizedBox(height: 14),
+            const Center(
+              child: SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ] else if (status == 'SCHEDULED') ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _actionBtn(
+                    'Accepter',
+                    Icons.check_circle_outline,
+                    const Color(0xFF0EA5A4),
+                    () => _updateAppointment(id, 'ACEPTED'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _actionBtn(
+                    'Rejeter',
+                    Icons.cancel_outlined,
+                    const Color(0xFFF43F5E),
+                    () => _updateAppointment(id, 'REJECTED'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ghostBtn(
+                    'Annuler',
+                    () => _updateAppointment(id, 'CANCELLED'),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (status == 'ACEPTED') ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _actionBtn(
+                    'Marquer terminé',
+                    Icons.task_alt_rounded,
+                    const Color(0xFF16A34A),
+                    () => _updateAppointment(id, 'COMPLETED'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ghostBtn(
+                    'Annuler',
+                    () => _updateAppointment(id, 'CANCELLED'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String imageUrl, String name) {
+    if (imageUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 22,
+        backgroundImage: NetworkImage(imageUrl),
+        onBackgroundImageError: (_, __) {},
+        backgroundColor: const Color(0xFFEEF2FF),
+      );
+    }
+    return CircleAvatar(
+      radius: 22,
+      backgroundColor: const Color(0xFFEEF2FF),
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : 'P',
+        style: const TextStyle(
+          color: Color(0xFF0D54F2),
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppointmentBadge(String status) {
+    String label;
+    Color bg, border, text;
+    switch (status) {
+      case 'SCHEDULED':
+        label = 'Programmé';
+        bg = const Color(0xFFFFF3E0);
+        border = const Color(0xFFFF9800);
+        text = const Color(0xFFE65100);
+        break;
+      case 'ACEPTED':
+        label = 'Accepté';
+        bg = const Color(0xFFE8F5E9);
+        border = const Color(0xFF4CAF50);
+        text = const Color(0xFF2E7D32);
+        break;
+      case 'REJECTED':
+        label = 'Rejeté';
+        bg = const Color(0xFFFFEBEE);
+        border = const Color(0xFFF43F5E);
+        text = const Color(0xFFC62828);
+        break;
+      case 'COMPLETED':
+        label = 'Terminé';
+        bg = const Color(0xFFE3F2FD);
+        border = const Color(0xFF2196F3);
+        text = const Color(0xFF1565C0);
+        break;
+      default:
+        label = 'Annulé';
+        bg = const Color(0xFFF5F5F5);
+        border = const Color(0xFF9E9E9E);
+        text = const Color(0xFF757575);
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border.withOpacity(0.5)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: text,
+        ),
+      ),
+    );
+  }
+
+  Widget _infoChip(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: Colors.grey[400]),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+        ),
+      ],
+    );
+  }
+
+  Widget _actionBtn(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onPressed,
+  ) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 15),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Widget _ghostBtn(String label, VoidCallback onPressed) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: Color(0xFFD6E4FF)),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF64748B),
+        ),
+      ),
+    );
+  }
 }
 
-class _SlotDialog extends StatefulWidget {
-  final AvailabilitySlot? existingSlot;
-  const _SlotDialog({this.existingSlot});
+// ─── Add Slot Bottom Sheet ────────────────────────────────────────────────────
+
+class _AddSlotSheet extends StatefulWidget {
+  const _AddSlotSheet();
 
   @override
-  State<_SlotDialog> createState() => _SlotDialogState();
+  State<_AddSlotSheet> createState() => _AddSlotSheetState();
 }
 
-class _SlotDialogState extends State<_SlotDialog> {
-  late int dayOfWeek;
-  late String startTime;
-  late String endTime;
-  late String place;
-
+class _AddSlotSheetState extends State<_AddSlotSheet> {
+  DateTime _selectedDate = DateTime.now();
+  int _startHour = 8;
+  int _endHour = 17;
+  final TextEditingController _placeCtrl = TextEditingController();
   List<ClinicModel> _clinics = [];
   ClinicModel? _selectedClinic;
   bool _loadingClinics = false;
@@ -809,167 +1124,607 @@ class _SlotDialogState extends State<_SlotDialog> {
   @override
   void initState() {
     super.initState();
-    dayOfWeek = widget.existingSlot?.dayOfWeek ?? 1;
-    startTime = widget.existingSlot?.startTime ?? '09:00';
-    endTime = widget.existingSlot?.endTime ?? '12:00';
-    place = 'Cabinet';
     _loadClinics();
+  }
+
+  @override
+  void dispose() {
+    _placeCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadClinics() async {
     setState(() => _loadingClinics = true);
     try {
-      final list = await DoctorApiService.getClinics();
+      final list = await DoctorApiService.getDoctorClinics();
       if (mounted) setState(() => _clinics = list);
     } finally {
       if (mounted) setState(() => _loadingClinics = false);
     }
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  void _submit() {
+    if (_placeCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Le lieu est obligatoire')));
+      return;
+    }
+    if (_startHour >= _endHour) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "L'heure de fin doit être supérieure à l'heure de début",
+          ),
+        ),
+      );
+      return;
+    }
+    final dateKey =
+        '${_selectedDate.year.toString().padLeft(4, '0')}-'
+        '${_selectedDate.month.toString().padLeft(2, '0')}-'
+        '${_selectedDate.day.toString().padLeft(2, '0')}';
+    final payload = <String, dynamic>{
+      'date': dateKey,
+      'startTime': _startHour,
+      'endTime': _endHour,
+      'place': _placeCtrl.text.trim(),
+    };
+    if (_selectedClinic != null) {
+      payload['clinicId'] = _selectedClinic!.clinicId;
+    }
+    Navigator.pop(context, payload);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        widget.existingSlot == null
-            ? 'Ajouter un créneau'
-            : 'Modifier le créneau',
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<int>(
-              value: dayOfWeek,
-              items: List.generate(
-                7,
-                (i) => DropdownMenuItem(
-                  value: i + 1,
-                  child: Text(_getDayName(i + 1)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ajouter un créneau',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          // Date picker
+          _SheetField(
+            label: 'Date',
+            child: InkWell(
+              onTap: _pickDate,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 18,
+                      color: Color(0xFF0D54F2),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      DateFormat('dd/MM/yyyy').format(_selectedDate),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
                 ),
               ),
-              onChanged: (v) => setState(() => dayOfWeek = v!),
-              decoration: const InputDecoration(labelText: 'Jour'),
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: TextEditingController(text: startTime),
-                    decoration:
-                        const InputDecoration(labelText: 'Début (HH:MM)'),
-                    onChanged: (v) => startTime = v,
+          ),
+          const SizedBox(height: 14),
+          // Hour pickers
+          Row(
+            children: [
+              Expanded(
+                child: _SheetField(
+                  label: 'Heure début',
+                  child: _HourDropdown(
+                    value: _startHour,
+                    onChanged: (v) => setState(() => _startHour = v),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: TextEditingController(text: endTime),
-                    decoration:
-                        const InputDecoration(labelText: 'Fin (HH:MM)'),
-                    onChanged: (v) => endTime = v,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _SheetField(
+                  label: 'Heure fin',
+                  child: _HourDropdown(
+                    value: _endHour,
+                    onChanged: (v) => setState(() => _endHour = v),
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Place
+          _SheetField(
+            label: 'Lieu (salle / cabinet) *',
+            child: TextField(
+              controller: _placeCtrl,
+              decoration: InputDecoration(
+                hintText: 'Ex: Salle 3 / Couloir B',
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
             ),
-            const SizedBox(height: 10),
-            // ─── Clinic dropdown ───────────────────────────────────────
-            _loadingClinics
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: LinearProgressIndicator(),
-                  )
+          ),
+          const SizedBox(height: 14),
+          // Clinic dropdown (optional, non-critical if empty)
+          _SheetField(
+            label: 'Clinique (optionnel)',
+            child: _loadingClinics
+                ? const LinearProgressIndicator()
                 : DropdownButtonFormField<ClinicModel?>(
                     value: _selectedClinic,
-                    decoration: const InputDecoration(labelText: 'Clinique'),
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                    ),
                     items: [
                       const DropdownMenuItem(
                         value: null,
                         child: Text(
-                          'Aucune clinique / lieu externe',
+                          '— Lieu externe (aucune clinique) —',
                           style: TextStyle(fontSize: 13),
                         ),
                       ),
                       ..._clinics.map(
                         (c) => DropdownMenuItem(
                           value: c,
-                          child: Text(c.name,
-                              style: const TextStyle(fontSize: 13)),
+                          child: Text(
+                            c.name,
+                            style: const TextStyle(fontSize: 13),
+                          ),
                         ),
                       ),
                     ],
                     onChanged: (v) => setState(() => _selectedClinic = v),
                   ),
-            const SizedBox(height: 10),
-            // ─── Place (room / cabinet number) ─────────────────────────
-            TextField(
-              controller: TextEditingController(text: place),
-              decoration: const InputDecoration(
-                  labelText: 'Lieu (salle, cabinet…)'),
-              onChanged: (v) => place = v,
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D54F2),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Ajouter le créneau',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      actions: [
-        buttonIn('Annuler', () => Navigator.pop(context), width: 100),
-        buttonC('Valider', () {
-          DateTime nextDateForWeekday(int weekday) {
-            final now = DateTime.now();
-            int diff = (weekday - now.weekday) % 7;
-            if (diff < 0) diff += 7;
-            final candidate = now.add(Duration(days: diff));
-            return DateTime(candidate.year, candidate.month, candidate.day);
-          }
+    );
+  }
+}
 
-          final startHourRaw = int.tryParse(startTime.split(':').first) ?? 9;
-          final endHourRaw =
-              int.tryParse(endTime.split(':').first) ?? (startHourRaw + 1);
-          final startHour = (startHourRaw - 1 + 24) % 24;
-          final endHour = (endHourRaw - 1 + 24) % 24;
-          final date = nextDateForWeekday(dayOfWeek).toIso8601String();
+// ─── Edit Slot Bottom Sheet ───────────────────────────────────────────────────
 
-          final payload = <String, dynamic>{
-            'date': date,
-            'startTime': startHour,
-            'endTime': endHour,
-            'place': place.isNotEmpty ? place : 'Cabinet',
-          };
-          if (_selectedClinic != null) {
-            payload['clinicId'] = _selectedClinic!.clinicId;
-          }
+class _EditSlotSheet extends StatefulWidget {
+  final Map<String, dynamic> slot;
+  const _EditSlotSheet({required this.slot});
 
-          if (widget.existingSlot == null) {
-            Navigator.pop(context, {'action': 'create', 'payload': payload});
-          } else {
-            Navigator.pop(context, {
-              'action': 'update',
-              'id': widget.existingSlot!.id,
-              'payload': {...payload, 'isBooked': false},
-            });
-          }
-        }, width: 120),
-      ],
+  @override
+  State<_EditSlotSheet> createState() => _EditSlotSheetState();
+}
+
+class _EditSlotSheetState extends State<_EditSlotSheet> {
+  late DateTime _selectedDate;
+  late int _startHour;
+  late int _endHour;
+  late TextEditingController _placeCtrl;
+  late bool _isBooked;
+
+  @override
+  void initState() {
+    super.initState();
+    // Parse from dateKey (YYYY-MM-DD) to avoid timezone boundary issues
+    final dateKey = (widget.slot['dateKey'] as String?) ?? '';
+    final parts = dateKey.split('-');
+    if (parts.length == 3) {
+      _selectedDate = DateTime(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
+    } else {
+      _selectedDate = DateTime.now();
+    }
+    _startHour = (widget.slot['startHour'] as int?) ?? 8;
+    _endHour = (widget.slot['endHour'] as int?) ?? 17;
+    _placeCtrl = TextEditingController(
+      text: widget.slot['place'] as String? ?? '',
+    );
+    _isBooked = (widget.slot['isBooked'] as bool?) ?? false;
+  }
+
+  @override
+  void dispose() {
+    _placeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Supprimer le créneau'),
+        content: const Text('Confirmer la suppression de ce créneau ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // close dialog
+              Navigator.pop(context, {'_delete': true}); // close sheet
+            },
+            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
-  String _getDayName(int day) {
-    switch (day) {
-      case 1:
-        return 'Lundi';
-      case 2:
-        return 'Mardi';
-      case 3:
-        return 'Mercredi';
-      case 4:
-        return 'Jeudi';
-      case 5:
-        return 'Vendredi';
-      case 6:
-        return 'Samedi';
-      case 7:
-        return 'Dimanche';
-      default:
-        return '';
+  void _submit() {
+    if (_placeCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Le lieu est obligatoire')));
+      return;
     }
+    if (_startHour >= _endHour) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "L'heure de fin doit être supérieure à l'heure de début",
+          ),
+        ),
+      );
+      return;
+    }
+    final dateKey =
+        '${_selectedDate.year.toString().padLeft(4, '0')}-'
+        '${_selectedDate.month.toString().padLeft(2, '0')}-'
+        '${_selectedDate.day.toString().padLeft(2, '0')}';
+    Navigator.pop(context, {
+      'date': dateKey,
+      'startTime': _startHour,
+      'endTime': _endHour,
+      'place': _placeCtrl.text.trim(),
+      'isBooked': _isBooked,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final slot = widget.slot;
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title + delete icon
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Détails du créneau',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                onPressed: _confirmDelete,
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Color(0xFFF43F5E),
+                ),
+                tooltip: 'Supprimer',
+              ),
+            ],
+          ),
+          // Current slot summary
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF0D54F2).withOpacity(0.15),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.calendar_today,
+                  size: 16,
+                  color: Color(0xFF0D54F2),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${slot['dateLabel']}  •  '
+                  "${slot['startLabel']} — ${slot['endLabel']}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Date
+          _SheetField(
+            label: 'Date',
+            child: InkWell(
+              onTap: _pickDate,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 18,
+                      color: Color(0xFF0D54F2),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      DateFormat('dd/MM/yyyy').format(_selectedDate),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Hour pickers
+          Row(
+            children: [
+              Expanded(
+                child: _SheetField(
+                  label: 'Heure début',
+                  child: _HourDropdown(
+                    value: _startHour,
+                    onChanged: (v) => setState(() => _startHour = v),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _SheetField(
+                  label: 'Heure fin',
+                  child: _HourDropdown(
+                    value: _endHour,
+                    onChanged: (v) => setState(() => _endHour = v),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Place
+          _SheetField(
+            label: 'Lieu *',
+            child: TextField(
+              controller: _placeCtrl,
+              decoration: InputDecoration(
+                hintText: 'Ex: Salle 3 / Couloir B',
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // isBooked toggle
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Statut du créneau',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        'Marquer comme réservé ou disponible',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _isBooked,
+                  onChanged: (v) => setState(() => _isBooked = v),
+                  activeColor: const Color(0xFF0D54F2),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D54F2),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Enregistrer',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Shared sheet helpers ─────────────────────────────────────────────────────
+
+class _SheetField extends StatelessWidget {
+  final String label;
+  final Widget child;
+  const _SheetField({required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 6),
+        child,
+      ],
+    );
+  }
+}
+
+class _HourDropdown extends StatelessWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+  const _HourDropdown({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<int>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+      ),
+      items: List.generate(
+        24,
+        (h) => DropdownMenuItem(
+          value: h,
+          child: Text('${h.toString().padLeft(2, '0')}:00'),
+        ),
+      ),
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
+    );
   }
 }

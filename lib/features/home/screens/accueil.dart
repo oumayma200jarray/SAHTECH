@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:sahtek/core/api/endpoint.dart';
 import 'package:sahtek/core/widgets/buttons.dart';
 import 'package:sahtek/core/widgets/custom_bottom_nav_bar.dart';
@@ -10,6 +11,7 @@ import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/core/widgets/video_player_widget.dart';
 import 'package:sahtek/features/content_library/services/favorite_posts_service.dart';
+import 'package:sahtek/features/exercises/controller/patient_exercises_controller.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class AccueilPage extends StatefulWidget {
@@ -31,9 +33,17 @@ class _AccueilPageState extends State<AccueilPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleNewGoogleUserFlow();
       Provider.of<GlobalDataProvider>(context, listen: false).refreshHistory();
+      context.read<PatientExercisesController>().loadAssignments();
     });
     _loadFavoritePostIds();
     _loadRoleForModeToggle();
+  }
+
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      Provider.of<GlobalDataProvider>(context, listen: false).refreshHistory(),
+      context.read<PatientExercisesController>().loadAssignments(force: true),
+    ]);
   }
 
   bool _showModeToggle = false;
@@ -218,9 +228,12 @@ class _AccueilPageState extends State<AccueilPage> {
       backgroundColor: Colors.white,
       // SafeArea permet d'éviter les encoches (notch) et la barre d'état du téléphone
       body: SafeArea(
-        child: SingleChildScrollView(
-          // Permet de faire défiler toute la page verticalement
-          child: Padding(
+        child: RefreshIndicator(
+          color: const Color.fromARGB(255, 13, 84, 242),
+          onRefresh: _onRefresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 20.0,
               vertical: 24.0,
@@ -319,6 +332,7 @@ class _AccueilPageState extends State<AccueilPage> {
           ),
         ),
       ),
+    ),
       // Bottom Navigation Bar réutilisable
       bottomNavigationBar: const CustomBottomNavBar(
         currentIndex: 0, // 0 = Accueil
@@ -451,72 +465,196 @@ class _AccueilPageState extends State<AccueilPage> {
 
   // Construit la carte bleue "les exercices prévus aujourd'hui"
   Widget _buildDailyProgramCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            spreadRadius: 0,
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'today'.tr(),
-            style: const TextStyle(
-              color: Color.fromARGB(255, 13, 84, 242),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(
-                Icons.directions_run,
-                color: Color.fromARGB(255, 13, 84, 242),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'exercise_program'.tr(),
-                style: const TextStyle(
-                  color: Color.fromARGB(255, 13, 84, 242),
-                  fontWeight: FontWeight.bold,
-                ),
+    return Consumer<PatientExercisesController>(
+      builder: (context, ctrl, _) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 0,
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'scheduled_exercises_today'.tr(),
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'objective_mobility'.tr(),
-            style: const TextStyle(color: Colors.grey, fontSize: 14),
-          ),
-          const SizedBox(height: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'today'.tr(),
+                style: const TextStyle(
+                  color: Color.fromARGB(255, 13, 84, 242),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(
+                    Iconsax.activity,
+                    color: Color.fromARGB(255, 13, 84, 242),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'exercise_program'.tr(),
+                    style: const TextStyle(
+                      color: Color.fromARGB(255, 13, 84, 242),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-          buttonC(
-            'start_session'.tr(),
-            () => Navigator.pushNamed(context, '/selection_test_ia'),
-            icon: Icons.play_arrow,
+              // ── Dynamic content ──────────────────────────────────────
+              if (ctrl.isLoading && !ctrl.isFetched)
+                _buildDailyCardSkeleton()
+              else if (ctrl.assignments.isEmpty)
+                Column(
+                  children: const [
+                    Icon(
+                      Iconsax.activity,
+                      size: 36,
+                      color: Color(0xFFCBD5E1),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Aucun exercice assigné pour le moment',
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 8),
+                  ],
+                )
+              else
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${ctrl.completedCount} / ${ctrl.totalCount} exercices complétés aujourd\'hui',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: ctrl.assignments.take(3).map((a) {
+                          final isCompleted = a.isCompleted;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isCompleted
+                                    ? const Color(0xFFECFDF5)
+                                    : const Color(0xFFF0F4FF),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isCompleted
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFF0052FF)
+                                          .withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isCompleted) ...[
+                                    const Icon(
+                                      Iconsax.tick_circle,
+                                      size: 13,
+                                      color: Color(0xFF10B981),
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Text(
+                                    a.exercise.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isCompleted
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFF0052FF),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+
+              const SizedBox(height: 16),
+              buttonC(
+                'Voir mes exercices',
+                () {
+                  context
+                      .read<PatientExercisesController>()
+                      .loadAssignments(force: true);
+                  Navigator.pushNamed(context, '/patient/exercises');
+                },
+                icon: Iconsax.arrow_right_3,
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDailyCardSkeleton() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 16,
+          width: 200,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Container(
+              height: 30,
+              width: 95,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 30,
+              width: 85,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 

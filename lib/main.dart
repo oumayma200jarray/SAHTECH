@@ -44,7 +44,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:sahtek/features/auth/controllers/signup_controller.dart';
 import 'package:sahtek/features/clinics/screens/my_clinics_page.dart';
 import 'package:sahtek/features/exercises/controller/exercises_controller.dart';
+import 'package:sahtek/features/exercises/controller/patient_exercises_controller.dart';
+import 'package:sahtek/features/exercises/pages/exercises_list_page.dart';
 import 'package:sahtek/features/exercises/screen/exercises_page.dart';
+import 'package:sahtek/services/exercise_socket_service.dart';
 import 'package:sahtek/features/specialists/screens/ListPatients.dart';
 import 'package:sahtek/providers/appointment_notifier.dart';
 import 'package:sahtek/features/specialists/screens/publier_exercice.dart';
@@ -72,6 +75,7 @@ void main() async {
   }
   await PushNotificationService.initialize();
   await ChatRealtimeService.instance.start();
+  await ExerciseSocketService.instance.initialize();
 
   initializeDateFormatting('fr_FR', null).then((_) {
     runApp(
@@ -100,6 +104,7 @@ void main() async {
               return notifier;
             }),
             ChangeNotifierProvider(create: (_) => ExercisesController()),
+            ChangeNotifierProvider(create: (_) => PatientExercisesController()),
           ],
           child: const MyApp(),
         ),
@@ -161,6 +166,7 @@ class MyApp extends StatelessWidget {
             RoleGuard(child: const MyClinicsPage()),
         '/exercises': (context) =>
             RoleGuard(child: const ExercisesPage()),
+        '/patient/exercises': (context) => const ExercisesListPage(),
       },
     );
   }

@@ -458,5 +458,7 @@
   "patients_active": "Actif",
   "patients_condition": "Motif",
   "patients_last_visit": "Dernière visite",
-  "patients_years": "{0} ans"
+  "patients_years": "{0} ans",
+  "all_exercises": "Tous les exercices",
+  "front": "Face"
 }

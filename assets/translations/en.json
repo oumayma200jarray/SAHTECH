@@ -424,5 +424,7 @@
   "patients_active": "Active",
   "patients_condition": "Reason",
   "patients_last_visit": "Last visit",
-  "patients_years": "{0} yrs"
+  "patients_years": "{0} yrs",
+  "all_exercises": "All exercises",
+  "front": "Front"
 }

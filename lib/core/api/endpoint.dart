@@ -130,4 +130,9 @@ class EndPoint {
   static const String doctorExercises = 'doctors/exercises';
   static String doctorExerciseById(String id) => 'doctors/exercises/$id';
   static const String doctorAssignExercise = 'doctors/assign-exercise';
+
+  // ─── Patient Assigned Exercises ──────────────────────────────────────────
+  static const String assignedExercises = 'users/assignedexercise';
+  static String markAssignmentComplete(String id) => 'users/assignedexercise/$id';
+  static const String exercisesWebSocketNamespace = '/exercises';
 }
