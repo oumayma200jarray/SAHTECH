@@ -350,6 +350,7 @@ class _MesRdvPageState extends State<MesRdvPage> {
 
   Widget _buildNextAppointmentCard(AppointmentModel app) {
     final visual = _statusVisual(app.status);
+    final clinicLine = _clinicText(app);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -407,6 +408,18 @@ class _MesRdvPageState extends State<MesRdvPage> {
                         fontSize: 14,
                       ),
                     ),
+                    if (clinicLine.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        clinicLine,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.80),
+                          fontSize: 12,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -470,6 +483,7 @@ class _MesRdvPageState extends State<MesRdvPage> {
 
   Widget _buildAppointmentListItem(AppointmentModel app) {
     final visual = _statusVisual(app.status);
+    final clinicLine = _clinicText(app);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -535,6 +549,30 @@ class _MesRdvPageState extends State<MesRdvPage> {
                   app.specialty,
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
+                if (clinicLine.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_hospital_outlined,
+                        size: 13,
+                        color: visual.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          clinicLine,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -596,6 +634,12 @@ class _MesRdvPageState extends State<MesRdvPage> {
         ],
       ),
     );
+  }
+
+  String _clinicText(AppointmentModel app) {
+    if (app.clinicName.isEmpty) return '';
+    if (app.clinicAddress.isEmpty) return app.clinicName;
+    return '${app.clinicName} • ${app.clinicAddress}';
   }
 
   _StatusVisual _statusVisual(String status) {

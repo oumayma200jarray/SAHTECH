@@ -31,6 +31,8 @@ class AppointmentService {
         (json['AvailableSlot'] as Map<String, dynamic>?) ??
         (json['availableSlot'] as Map<String, dynamic>?) ??
         <String, dynamic>{};
+    final clinic =
+        (slot['clinic'] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final specialist =
         (json['specialist'] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final user =
@@ -52,6 +54,8 @@ class AppointmentService {
                   slot['place'] ??
                   'Consultation')
               .toString(),
+      clinicName: (clinic['name'] ?? '').toString(),
+      clinicAddress: (clinic['address'] ?? '').toString(),
       date: DateTime(
         appointmentDateTime.year,
         appointmentDateTime.month,

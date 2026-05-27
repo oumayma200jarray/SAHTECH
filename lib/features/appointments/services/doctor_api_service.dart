@@ -7,7 +7,14 @@ class DoctorApiService {
     final data = await EndPoint.client.get(EndPoint.doctorDailySlots);
     if (data == null) return [];
     if (data is List) {
-      return data.whereType<Map<String, dynamic>>().toList();
+      return data.whereType<Map<String, dynamic>>().map((item) {
+        final clinic = (item['clinic'] as Map?)?.cast<String, dynamic>() ?? {};
+        return {
+          ...item,
+          'clinicId': (clinic['clinicId'] ?? clinic['id'] ?? '').toString(),
+          'clinicName': (clinic['name'] ?? '').toString(),
+        };
+      }).toList();
     }
     return [];
   }
@@ -65,7 +72,7 @@ class DoctorApiService {
     }
   }
 
-    static Future<List<ClinicModel>> getDoctorClinics() async {
+  static Future<List<ClinicModel>> getDoctorClinics() async {
     try {
       final data = await EndPoint.client.get(EndPoint.doctorClinics);
       if (data == null) return [];
@@ -83,10 +90,7 @@ class DoctorApiService {
   }
 
   static Future<ClinicModel> createClinic(Map<String, dynamic> body) async {
-    final data = await EndPoint.client.post(
-      EndPoint.doctorClinics,
-      body: body,
-    );
+    final data = await EndPoint.client.post(EndPoint.doctorClinics, body: body);
     return ClinicModel.fromJson(data as Map<String, dynamic>);
   }
 }

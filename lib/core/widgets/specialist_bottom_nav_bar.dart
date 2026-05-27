@@ -10,7 +10,7 @@ class SpecialistBottomNavBar extends StatelessWidget {
   final int currentIndex;
 
   const SpecialistBottomNavBar({Key? key, required this.currentIndex})
-      : super(key: key);
+    : super(key: key);
 
   void _onItemTapped(BuildContext context, int index) {
     if (index == currentIndex) return;
@@ -48,18 +48,18 @@ class SpecialistBottomNavBar extends StatelessWidget {
       onTap: (index) => _onItemTapped(context, index),
       items: [
         BottomNavigationBarItem(
-          icon: const Icon(Icons.dashboard_outlined),
-          activeIcon: const Icon(Icons.dashboard),
+          icon: const Icon(Iconsax.home_2),
+          activeIcon: const Icon(Iconsax.home_2),
           label: 'nav_dashboard'.tr(),
         ),
         BottomNavigationBarItem(
-          icon: const Icon(Icons.people_outline),
-          activeIcon: const Icon(Icons.people),
+          icon: const Icon(Iconsax.user),
+          activeIcon: const Icon(Iconsax.user),
           label: 'nav_patients'.tr(),
         ),
         BottomNavigationBarItem(
-          icon: _BadgedIcon(icon: Icons.schedule_outlined, count: newCount),
-          activeIcon: _BadgedIcon(icon: Icons.schedule, count: newCount),
+          icon: _BadgedIcon(icon: Iconsax.calendar_1, count: newCount),
+          activeIcon: _BadgedIcon(icon: Iconsax.calendar_1, count: newCount),
           label: 'nav_availability'.tr(),
         ),
         BottomNavigationBarItem(

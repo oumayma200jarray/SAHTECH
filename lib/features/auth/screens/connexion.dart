@@ -51,19 +51,19 @@ class _ConnexionState extends State<Connexion> {
     final localeCode = context.locale.languageCode;
     final currentLanguageImage =
         langageImages[localeCode] ?? 'lib/assets/images/fr.png';
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: pageBackground,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.only(bottom: keyboardInset),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                  maxHeight: constraints.maxHeight,
-                  maxWidth: 520,
-                ),
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Stack(
                   children: [
                     Positioned(
@@ -116,7 +116,6 @@ class _ConnexionState extends State<Connexion> {
                             ],
                           ),
                           const SizedBox(height: 24),
-                          const Spacer(),
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             curve: Curves.easeInOut,
@@ -404,7 +403,7 @@ class _ConnexionState extends State<Connexion> {
                               ],
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),

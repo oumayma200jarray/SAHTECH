@@ -6,6 +6,8 @@ class DoctorDailySlotModel {
   final DateTime endTime;
   final bool isBooked;
   final String? place;
+  final String? clinicId;
+  final String? clinicName;
 
   DoctorDailySlotModel({
     required this.availabilityId,
@@ -14,6 +16,8 @@ class DoctorDailySlotModel {
     required this.endTime,
     required this.isBooked,
     this.place,
+    this.clinicId,
+    this.clinicName,
   });
 
   factory DoctorDailySlotModel.fromJson(Map<String, dynamic> json) {
@@ -30,6 +34,8 @@ class DoctorDailySlotModel {
           : DateTime.now(),
       isBooked: json['isBooked'] ?? false,
       place: json['place'],
+      clinicId: json['clinicId']?.toString(),
+      clinicName: json['clinicName']?.toString(),
     );
   }
 
@@ -41,6 +47,8 @@ class DoctorDailySlotModel {
       'endTime': endTime.toIso8601String(),
       'isBooked': isBooked,
       'place': place,
+      'clinicId': clinicId,
+      'clinicName': clinicName,
     };
   }
 }
@@ -52,6 +60,8 @@ class DoctorAppointmentModel {
   final String reason;
   final String patientName;
   final String? patientImage;
+  final String clinicName;
+  final String clinicAddress;
   final DateTime date;
   final DateTime startTime;
   final DateTime endTime;
@@ -63,6 +73,8 @@ class DoctorAppointmentModel {
     required this.reason,
     required this.patientName,
     this.patientImage,
+    this.clinicName = '',
+    this.clinicAddress = '',
     required this.date,
     required this.startTime,
     required this.endTime,
@@ -76,6 +88,8 @@ class DoctorAppointmentModel {
       reason: json['reason'] ?? '',
       patientName: json['patientName'] ?? '',
       patientImage: json['patientImage'],
+      clinicName: json['clinicName'] ?? '',
+      clinicAddress: json['clinicAddress'] ?? '',
       date: json['date'] != null
           ? DateTime.parse(json['date'])
           : DateTime.now(),
@@ -96,6 +110,8 @@ class DoctorAppointmentModel {
       'reason': reason,
       'patientName': patientName,
       'patientImage': patientImage,
+      'clinicName': clinicName,
+      'clinicAddress': clinicAddress,
       'date': date.toIso8601String(),
       'startTime': startTime.toIso8601String(),
       'endTime': endTime.toIso8601String(),

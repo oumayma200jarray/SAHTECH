@@ -1,6 +1,11 @@
+// Redesigned following SAHTECK brand guidelines
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
+import 'package:sahtek/core/services/storage_service.dart';
+import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/core/widgets/role_gate.dart';
 import 'package:sahtek/core/widgets/specialist_bottom_nav_bar.dart';
 import 'package:sahtek/features/dashboard/screens/nouvelle_publication.dart';
@@ -21,11 +26,21 @@ class DashboardSpecialistePage extends StatefulWidget {
 class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
   List<bool> _isSelected = [true, false];
   late Future<_DashboardData> _dashboardFuture;
+  String? _heroImageUrl;
 
   @override
   void initState() {
     super.initState();
     _dashboardFuture = _loadDashboardData();
+    _loadHeroImage();
+  }
+
+  Future<void> _loadHeroImage() async {
+    final imageUrl = await StorageService.getImageUrl();
+    if (!mounted) return;
+    setState(() {
+      _heroImageUrl = UrlHelper.fixImageUrl(imageUrl ?? '');
+    });
   }
 
   Future<void> _refreshDashboard() async {
@@ -58,7 +73,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
     return RoleGate(
       allowedRoles: const ['SPECIALIST', 'SPECIALISTE', 'DOCTOR'],
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4F7FC),
+        backgroundColor: const Color(0xFFF8FAFF),
         bottomNavigationBar: const SpecialistBottomNavBar(currentIndex: 0),
         body: SafeArea(
           child: RefreshIndicator(
@@ -107,12 +122,16 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
   }
 
   Widget _buildHeroCard(BuildContext context, String doctorName) {
+    final doctorInitial = doctorName.trim().isNotEmpty
+        ? doctorName.trim()[0].toUpperCase()
+        : 'U';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0D54F2), Color(0xFF4E7DFF)],
+          colors: [Color(0xFF0052FF), Color(0xFF00A3FF)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -131,10 +150,23 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
               const Spacer(),
               GestureDetector(
                 onTap: () => Navigator.pushNamed(context, '/profile'),
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   radius: 21,
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.person, color: Color(0xFF0D54F2)),
+                  backgroundImage:
+                      _heroImageUrl != null && _heroImageUrl!.isNotEmpty
+                      ? NetworkImage(_heroImageUrl!)
+                      : null,
+                  child: _heroImageUrl == null || _heroImageUrl!.isEmpty
+                      ? Text(
+                          doctorInitial,
+                          style: const TextStyle(
+                            color: Color(0xFF0052FF),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        )
+                      : null,
                 ),
               ),
             ],
@@ -193,28 +225,28 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             fr: 'depuis le serveur',
             en: 'from API response',
           ),
-          icon: Icons.groups_outlined,
-          color: const Color(0xFF0D54F2),
+          icon: Iconsax.user,
+          color: const Color(0xFF0052FF),
         ),
         _buildStatTile(
           label: _t(context, fr: 'RDV à venir', en: 'Upcoming RDVs'),
           value: data.upcomingAppointments.length.toString(),
           subtitle: _t(context, fr: 'programmés', en: 'scheduled'),
-          icon: Icons.event_available_outlined,
-          color: const Color(0xFF17A673),
+          icon: Iconsax.calendar_1,
+          color: const Color(0xFF10B981),
         ),
         _buildStatTile(
           label: _t(context, fr: 'Messages', en: 'Messages'),
           value: data.unreadCount.toString(),
           subtitle: _t(context, fr: 'non lus', en: 'unread'),
-          icon: Icons.mark_chat_unread_outlined,
+          icon: Iconsax.sms,
           color: const Color(0xFFF59E0B),
         ),
         _buildStatTile(
           label: _t(context, fr: 'Publications', en: 'Posts'),
           value: data.documents.length.toString(),
           subtitle: _t(context, fr: 'récentes', en: 'recent'),
-          icon: Icons.article_outlined,
+          icon: Iconsax.activity,
           color: const Color(0xFFE14C4C),
         ),
       ],
@@ -240,10 +272,10 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: const Color(0xFF0052FF).withOpacity(0.10),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: const Color(0xFF0052FF)),
           ),
           const Spacer(),
           Text(
@@ -251,7 +283,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF111827),
+              color: Color(0xFF0A0F1E),
             ),
           ),
           Text(
@@ -279,33 +311,23 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
     final actions = [
       _QuickAction(
         label: _t(context, fr: 'Patients', en: 'Patients'),
-        icon: Icons.people_outline,
+        icon: Iconsax.user,
         route: '/liste_patients',
       ),
       _QuickAction(
         label: _t(context, fr: 'Planning', en: 'Planning'),
-        icon: Icons.event_note_outlined,
+        icon: Iconsax.calendar_1,
         route: '/gestion_disponibilites',
       ),
       _QuickAction(
         label: _t(context, fr: 'Messages', en: 'Messages'),
-        icon: Icons.chat_bubble_outline,
+        icon: Iconsax.sms,
         route: '/messagerie',
       ),
       _QuickAction(
         label: _t(context, fr: 'Profil', en: 'Profile'),
-        icon: Icons.person_outline,
+        icon: Iconsax.user,
         route: '/profile',
-      ),
-      _QuickAction(
-        label: _t(context, fr: 'Exercices', en: 'Exercises'),
-        icon: Icons.fitness_center_outlined,
-        route: '/publier_exercice',
-      ),
-      _QuickAction(
-        label: _t(context, fr: 'Dossier', en: 'Medical file'),
-        icon: Icons.folder_open_outlined,
-        route: '/specialist_medical_folder',
       ),
     ];
 
@@ -351,10 +373,10 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D54F2).withOpacity(0.10),
+                color: const Color(0xFF0052FF).withOpacity(0.10),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(action.icon, color: const Color(0xFF0D54F2)),
+              child: Icon(action.icon, color: const Color(0xFF0052FF)),
             ),
             const SizedBox(height: 10),
             Text(
@@ -363,7 +385,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
+                color: Color(0xFF0A0F1E),
               ),
             ),
           ],
@@ -424,7 +446,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             width: 64,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D54F2).withOpacity(0.08),
+              color: const Color(0xFF0052FF).withOpacity(0.08),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
@@ -434,7 +456,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 14,
-                    color: Color(0xFF0D54F2),
+                    color: Color(0xFF0052FF),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -485,6 +507,15 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
                 ),
+                if (_clinicText(appointment).isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _clinicText(appointment),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                  ),
+                ],
               ],
             ),
           ),
@@ -538,11 +569,11 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: const Color(0xFF0D54F2).withOpacity(0.12),
+            backgroundColor: const Color(0xFF0052FF).withOpacity(0.12),
             child: Text(
               initials,
               style: const TextStyle(
-                color: Color(0xFF0D54F2),
+                color: Color(0xFF0052FF),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -615,14 +646,12 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
             ),
           )
         else
-          SizedBox(
-            height: 144,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: docs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, index) => _buildDocumentCard(docs[index]),
-            ),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) => _buildDocumentCard(docs[index]),
           ),
       ],
     );
@@ -631,44 +660,69 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
   Widget _buildDocumentCard(ContentModel doc) {
     final isVideo = doc.videoUrl != null && doc.videoUrl!.isNotEmpty;
     return Container(
-      width: 168,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: isVideo
-                  ? const Color(0xFFE14C4C).withOpacity(0.12)
-                  : const Color(0xFF0D54F2).withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isVideo ? Icons.play_circle_fill : Icons.article_outlined,
-              color: isVideo
-                  ? const Color(0xFFE14C4C)
-                  : const Color(0xFF0D54F2),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            doc.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            isVideo
-                ? _t(context, fr: 'Vidéo', en: 'Video')
-                : _t(context, fr: 'Article', en: 'Article'),
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isVideo
+                      ? const Color(0xFFE14C4C).withOpacity(0.12)
+                      : const Color(0xFF0052FF).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isVideo ? Iconsax.video_play : Iconsax.activity,
+                  color: isVideo
+                      ? const Color(0xFFE14C4C)
+                      : const Color(0xFF0052FF),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      doc.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: Color(0xFF0A0F1E),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isVideo
+                          ? _t(context, fr: 'Vidéo', en: 'Video')
+                          : _t(context, fr: 'Article', en: 'Article'),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -694,7 +748,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF4A7DFF), Color(0xFF0D54F2)],
+            colors: [Color(0xFF0052FF), Color(0xFF00A3FF)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -708,7 +762,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
                 color: Colors.white.withOpacity(0.18),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.add_to_photos, color: Colors.white),
+              child: const Icon(Iconsax.add, color: Colors.white),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -734,7 +788,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white),
+            const Icon(Iconsax.arrow_right_3, color: Colors.white),
           ],
         ),
       ),
@@ -754,25 +808,27 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: Color(0xFF1A1C1E),
+            color: Color(0xFF0A0F1E),
           ),
         ),
-        TextButton(
-          onPressed: onViewAll,
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Text(
-            _t(context, fr: 'Voir tout', en: 'View all'),
-            style: const TextStyle(
-              color: Color(0xFF0D54F2),
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+        title != "Accès rapides" && title != "Quick access"
+            ? TextButton(
+                onPressed: onViewAll,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  _t(context, fr: 'Voir tout', en: 'View all'),
+                  style: const TextStyle(
+                    color: Color(0xFF0052FF),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            : SizedBox(height: 0),
       ],
     );
   }
@@ -787,7 +843,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
       ),
       child: Column(
         children: [
-          Icon(Icons.info_outline, color: Colors.grey[300], size: 36),
+          Icon(Iconsax.info_circle, color: Colors.grey[300], size: 36),
           const SizedBox(height: 10),
           Text(
             message,
@@ -804,7 +860,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey[200]!),
+          border: Border.all(color: const Color(0xFFDCE7FF)),
         ),
         child: ToggleButtons(
           isSelected: _isSelected,
@@ -819,7 +875,7 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
           },
           borderRadius: BorderRadius.circular(16),
           selectedColor: Colors.white,
-          fillColor: const Color(0xFF0D54F2),
+          fillColor: const Color(0xFF0052FF),
           color: Colors.grey[600],
           constraints: BoxConstraints(
             minHeight: 40,
@@ -857,6 +913,15 @@ class _DashboardSpecialistePageState extends State<DashboardSpecialistePage> {
         ),
       ),
     );
+  }
+
+  String _clinicText(DoctorAppointmentModel appointment) {
+    if (appointment.clinicName.isNotEmpty &&
+        appointment.clinicAddress.isNotEmpty) {
+      return '${appointment.clinicName} • ${appointment.clinicAddress}';
+    }
+    if (appointment.clinicName.isNotEmpty) return appointment.clinicName;
+    return appointment.place;
   }
 
   Color _statusColor(String status) {

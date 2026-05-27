@@ -26,6 +26,7 @@ class _AccueilPageState extends State<AccueilPage> {
   final Set<String> _favoritePostIds = {};
   bool _favoritesLoaded = false;
   String? _updatingFavoriteId;
+  String? _headerImageUrl;
 
   @override
   void initState() {
@@ -37,6 +38,15 @@ class _AccueilPageState extends State<AccueilPage> {
     });
     _loadFavoritePostIds();
     _loadRoleForModeToggle();
+    _loadHeaderImageUrl();
+  }
+
+  Future<void> _loadHeaderImageUrl() async {
+    final imageUrl = await StorageService.getImageUrl();
+    if (!mounted) return;
+    setState(() {
+      _headerImageUrl = UrlHelper.fixImageUrl(imageUrl ?? '');
+    });
   }
 
   Future<void> _onRefresh() async {
@@ -130,28 +140,24 @@ class _AccueilPageState extends State<AccueilPage> {
     final postsRaw =
         (await EndPoint.client.get(EndPoint.posts)) as List<dynamic>? ??
         <dynamic>[];
-    final articles = postsRaw
-        .whereType<Map<String, dynamic>>()
-        .where((json) {
-          final type = (json['type'] ?? '').toString().toLowerCase();
-          return !type.contains('video');
-        })
-        .map((json) {
-          final specialist = json['specialist'] as Map<String, dynamic>?;
-          final user = specialist?['user'] as Map<String, dynamic>?;
-          return _FeedPostItem(
-            id: (json['postId'] ?? '').toString(),
-            authorName: (user?['fullName'] ?? '').toString(),
-            authorImageUrl: UrlHelper.fixImageUrl(
-              user?['imageUrl']?.toString(),
-            ),
-            title: (json['title'] ?? '').toString(),
-            description: (json['description'] ?? '').toString(),
-            mediaUrl: UrlHelper.fixImageUrl(json['url']?.toString()),
-            isVideo: false,
-          );
-        })
-        .toList();
+    final articles = postsRaw.whereType<Map<String, dynamic>>().map((json) {
+      final rawType = (json['type'] ?? '').toString();
+      final type = rawType.toUpperCase();
+      final isVideo = type == 'VIDEO';
+      final specialist = json['specialist'] as Map<String, dynamic>?;
+      final user = specialist?['user'] as Map<String, dynamic>?;
+      return _FeedPostItem(
+        id: (json['postId'] ?? '').toString(),
+        authorName: (user?['fullName'] ?? '').toString(),
+        authorImageUrl: UrlHelper.fixImageUrl(user?['imageUrl']?.toString()),
+        title: (json['title'] ?? '').toString(),
+        description: (json['description'] ?? '').toString(),
+        mediaUrl: UrlHelper.fixImageUrl(json['url']?.toString()),
+        isVideo: isVideo,
+        postType: type,
+        rawPostType: rawType,
+      );
+    }).toList();
     return [...articles];
   }
 
@@ -234,105 +240,89 @@ class _AccueilPageState extends State<AccueilPage> {
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20.0,
-              vertical: 24.0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // En-tête (Profil utilisateur)
-                _buildHeader(context),
-                if (_showModeToggle) ...[
-                  const SizedBox(height: 16),
-                  Center(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: ToggleButtons(
-                        isSelected: const [
-                          false,
-                          true,
-                        ], // [Specialist, Patient]
-                        onPressed: (int index) {
-                          if (index == 0) {
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/dashboard_specialiste',
-                            );
-                          }
-                          // index == 1 is patient (current page) -> no-op
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        selectedColor: Colors.white,
-                        fillColor: const Color(0xFF0D54F2),
-                        color: Colors.grey[600],
-                        constraints: BoxConstraints(
-                          minHeight: 40,
-                          minWidth:
-                              (MediaQuery.of(context).size.width - 50) / 2,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 24.0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // En-tête (Profil utilisateur)
+                  _buildHeader(context),
+                  if (_showModeToggle) ...[
+                    const SizedBox(height: 16),
+                    Center(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
                         ),
-                        children: [
-                          Text(
-                            'mode_specialist'.tr(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
+                        child: ToggleButtons(
+                          isSelected: const [
+                            false,
+                            true,
+                          ], // [Specialist, Patient]
+                          onPressed: (int index) {
+                            if (index == 0) {
+                              Navigator.pushReplacementNamed(
+                                context,
+                                '/dashboard_specialiste',
+                              );
+                            }
+                            // index == 1 is patient (current page) -> no-op
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          selectedColor: Colors.white,
+                          fillColor: const Color(0xFF0D54F2),
+                          color: Colors.grey[600],
+                          constraints: BoxConstraints(
+                            minHeight: 40,
+                            minWidth:
+                                (MediaQuery.of(context).size.width - 50) / 2,
                           ),
-                          Text(
-                            'mode_patient'.tr(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                          children: [
+                            Text(
+                              'mode_specialist'.tr(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
-                          ),
-                        ],
+                            Text(
+                              'mode_patient'.tr(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
+                  const SizedBox(height: 32),
+
+                  // Section "Programme d'exercices"
+                  _buildDailyProgramCard(context),
+                  const SizedBox(height: 40),
+
+                  // Section "Prochaine évaluation" (Uniquement s'il y a un RDV à venir)
+                  if (upcomingAppointment != null) ...[
+                    _buildEvaluationCard(context, upcomingAppointment),
+                    const SizedBox(height: 16),
+                  ],
+
+                  _buildPostsFeed(),
+
+                  const SizedBox(height: 40),
                 ],
-                const SizedBox(height: 32),
-
-                // Section "Programme d'exercices"
-                _buildDailyProgramCard(context),
-                const SizedBox(height: 40),
-
-                // Titre de section principal
-                Text(
-                  'specialized_content'.tr(),
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Section "Vidéos d'exercices"
-                _buildSectionHeader('exercise_videos'.tr()),
-                const SizedBox(height: 16),
-
-                // Section "Prochaine évaluation" (Uniquement s'il y a un RDV à venir)
-                if (upcomingAppointment != null) ...[
-                  _buildEvaluationCard(context, upcomingAppointment),
-                  const SizedBox(height: 16),
-                ],
-
-                _buildPostsFeed(),
-
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
           ),
         ),
       ),
-    ),
       // Bottom Navigation Bar réutilisable
       bottomNavigationBar: const CustomBottomNavBar(
         currentIndex: 0, // 0 = Accueil
@@ -345,6 +335,7 @@ class _AccueilPageState extends State<AccueilPage> {
   // Construit l'en-tête (Photo, Bonjour Jean Dupont...)
   Widget _buildHeader(BuildContext context) {
     final profile = context.watch<GlobalDataProvider>().profile;
+    final imageUrl = _headerImageUrl ?? '';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -357,16 +348,21 @@ class _AccueilPageState extends State<AccueilPage> {
                 child: CircleAvatar(
                   radius: 24,
                   backgroundColor: Colors.blue.withOpacity(0.1),
-                  child: Text(
-                    profile.fullName.isNotEmpty
-                        ? profile.fullName[0].toUpperCase()
-                        : 'U',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 13, 84, 242),
-                    ),
-                  ),
+                  backgroundImage: imageUrl.isNotEmpty
+                      ? NetworkImage(imageUrl)
+                      : null,
+                  child: imageUrl.isEmpty
+                      ? Text(
+                          profile.fullName.isNotEmpty
+                              ? profile.fullName[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color.fromARGB(255, 13, 84, 242),
+                          ),
+                        )
+                      : null,
                 ),
               ),
               const SizedBox(width: 16),
@@ -518,11 +514,7 @@ class _AccueilPageState extends State<AccueilPage> {
               else if (ctrl.assignments.isEmpty)
                 Column(
                   children: const [
-                    Icon(
-                      Iconsax.activity,
-                      size: 36,
-                      color: Color(0xFFCBD5E1),
-                    ),
+                    Icon(Iconsax.activity, size: 36, color: Color(0xFFCBD5E1)),
                     SizedBox(height: 8),
                     Text(
                       'Aucun exercice assigné pour le moment',
@@ -565,8 +557,9 @@ class _AccueilPageState extends State<AccueilPage> {
                                 border: Border.all(
                                   color: isCompleted
                                       ? const Color(0xFF10B981)
-                                      : const Color(0xFF0052FF)
-                                          .withOpacity(0.3),
+                                      : const Color(
+                                          0xFF0052FF,
+                                        ).withOpacity(0.3),
                                 ),
                               ),
                               child: Row(
@@ -602,16 +595,12 @@ class _AccueilPageState extends State<AccueilPage> {
                 ),
 
               const SizedBox(height: 16),
-              buttonC(
-                'Voir mes exercices',
-                () {
-                  context
-                      .read<PatientExercisesController>()
-                      .loadAssignments(force: true);
-                  Navigator.pushNamed(context, '/patient/exercises');
-                },
-                icon: Iconsax.arrow_right_3,
-              ),
+              buttonC('Voir mes exercices', () {
+                context.read<PatientExercisesController>().loadAssignments(
+                  force: true,
+                );
+                Navigator.pushNamed(context, '/patient/exercises');
+              }, icon: Iconsax.arrow_right_3),
             ],
           ),
         );
@@ -659,27 +648,6 @@ class _AccueilPageState extends State<AccueilPage> {
   }
 
   // Construit l'en-tête d'une section (Titre à gauche, "Voir tout" à droite)
-  Widget _buildSectionHeader(String title) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        TextButton(
-          onPressed: () {},
-          child: Text(
-            'see_all'.tr(),
-            style: const TextStyle(
-              color: Color.fromARGB(255, 13, 84, 242),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildPostsFeed() {
     return FutureBuilder<List<_FeedPostItem>>(
@@ -776,7 +744,7 @@ class _AccueilPageState extends State<AccueilPage> {
                       ),
                     ),
                     Text(
-                      item.isVideo ? 'Video exercise' : 'Article',
+                      _feedPostTypeLabel(item),
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                   ],
@@ -915,6 +883,25 @@ class _AccueilPageState extends State<AccueilPage> {
       ),
     );
   }
+
+  String _feedPostTypeLabel(_FeedPostItem item) {
+    // Prefer exact API type when available
+    final type = item.postType.toUpperCase();
+    switch (type) {
+      case 'VIDEO':
+        return 'post_type_video'.tr();
+      case 'IMAGE':
+      case 'PHOTO':
+        return 'post_type_photo'.tr();
+      case 'ARTICLE':
+        return 'post_type_article'.tr();
+      default:
+        // Fallback: infer from media presence
+        if (item.isVideo) return 'post_type_video'.tr();
+        if (item.mediaUrl.isNotEmpty) return 'post_type_photo'.tr();
+        return 'post_type_article'.tr();
+    }
+  }
 }
 
 class _FeedPostItem {
@@ -925,6 +912,8 @@ class _FeedPostItem {
   final String description;
   final String mediaUrl;
   final bool isVideo;
+  final String postType;
+  final String rawPostType;
 
   const _FeedPostItem({
     required this.id,
@@ -934,5 +923,7 @@ class _FeedPostItem {
     required this.description,
     required this.mediaUrl,
     required this.isVideo,
+    required this.postType,
+    required this.rawPostType,
   });
 }

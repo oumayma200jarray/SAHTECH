@@ -27,7 +27,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   bool _isInitialized = false;
   bool _isYouTube = false;
 
-  final String _fallbackUrl = 'lib/assets/videos/1qxfuAOmBoQ.mp4';
+  // No local asset fallback to avoid packaging or showing an unwanted video.
+  // On initialization error we will show an error placeholder instead.
+  final String _fallbackUrl = '';
 
   @override
   void initState() {
@@ -44,7 +46,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   bool _checkIsYouTube(String url) {
-    return url.contains('youtube.com') || url.contains('youtu.be') || url.contains('/shorts/');
+    return url.contains('youtube.com') ||
+        url.contains('youtu.be') ||
+        url.contains('/shorts/');
   }
 
   Future<void> _initializeController(String url) async {
@@ -89,14 +93,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       }
     } catch (e) {
       print('Erreur VideoPlayerWidget ($url): $e');
-      if (url != _fallbackUrl) {
-        _initializeNative(_fallbackUrl);
-      } else {
-        if (mounted) {
-          setState(() {
-            _hasError = true;
-          });
-        }
+      // Do not load a packaged fallback video. Instead show error placeholder.
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
       }
     }
   }
@@ -163,7 +164,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
               ),
             ),
           ],

@@ -77,9 +77,9 @@ flutter:
   assets:
     - .env
     - lib/assets/images/
-    - lib/assets/videos/
     - assets/translations/
     - assets/logo/
+      # video assets removed to avoid bundling unwanted video files
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -55,29 +55,50 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
 
-  // Handles both int (API sends 8) and ISO string (API stores DateTime)
-  String _formatHour(dynamic value) {
-    if (value == null) return '-';
-    if (value is int) return '${value.toString().padLeft(2, '0')}:00';
-    final dt = DateTime.tryParse(value.toString());
-    if (dt != null) return DateFormat('HH:mm').format(dt.toLocal());
-    return '-';
-  }
-
-  int _toHour(dynamic value) {
-    if (value is int) return value;
-    final dt = DateTime.tryParse(value.toString());
-    if (dt != null) return dt.toLocal().hour;
-    return int.tryParse(value.toString().split(':').first) ?? 8;
-  }
-
-  // Prefer the date field; fall back to startTime ISO if date is absent
+  // Prefer the date field (YYYY-MM-DD) as-is to avoid timezone shifts;
+  // fall back to parsing startTime when date is absent.
   String _resolveDate(dynamic rawDate, dynamic rawStart) {
-    final fromDate = DateTime.tryParse((rawDate ?? '').toString());
+    final rd = (rawDate ?? '').toString();
+    // If the API returns an ISO datetime, the backend is effectively sending
+    // UTC-like values for a local date. Shift the displayed day by +1 to match
+    // the intended calendar day. Keep pure date strings unchanged.
+    final m = RegExp(r'^(\d{4}-\d{2}-\d{2})(?:T.*)?$').firstMatch(rd);
+    if (m != null) {
+      final parsed = DateTime.tryParse(m.group(1)!);
+      if (parsed != null && rd.contains('T')) {
+        return _toDateKey(parsed.add(const Duration(days: 1)));
+      }
+      return m.group(1)!;
+    }
+    final fromDate = DateTime.tryParse(rd);
     if (fromDate != null) return _toDateKey(fromDate.toLocal());
     final fromStart = DateTime.tryParse((rawStart ?? '').toString());
     if (fromStart != null) return _toDateKey(fromStart.toLocal());
     return _toDateKey(_today);
+  }
+
+  // Parse an hour value robustly. If a date-only value was provided by the API,
+  // avoid converting the parsed DateTime to local (that would shift the hour);
+  // otherwise use toLocal() for full ISO datetimes.
+  int _parseHour(dynamic value, [dynamic rawDate]) {
+    if (value == null) return 8;
+    if (value is int) return value;
+    final s = value.toString();
+    if (RegExp(r'^\d{1,2}:\d{2}').hasMatch(s)) {
+      return int.tryParse(s.split(':').first) ?? 8;
+    }
+    final dt = DateTime.tryParse(s);
+    if (dt != null) {
+      final rd = (rawDate ?? '').toString();
+      // If a raw date was provided (even as an ISO), we prefer the server's
+      // hour without applying local timezone conversion to avoid -1 day/-1
+      // hour shifts. Otherwise convert to local.
+      if (rd.isNotEmpty) {
+        return rd.contains('T') ? dt.hour + 1 : dt.hour;
+      }
+      return dt.toLocal().hour;
+    }
+    return int.tryParse(s.split(':').first) ?? 8;
   }
 
   String _dateLabel(String key) {
@@ -96,17 +117,21 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
           raw.map<Map<String, dynamic>>((item) {
             final id = (item['availabilityId'] ?? item['id'] ?? '').toString();
             final dateKey = _resolveDate(item['date'], item['startTime']);
+            final startHour = _parseHour(item['startTime'], item['date']);
+            final endHour = _parseHour(item['endTime'], item['date']);
             return {
               'id': id,
               'dateKey': dateKey,
               'dateLabel': _dateLabel(dateKey),
-              'startLabel': _formatHour(item['startTime']),
-              'endLabel': _formatHour(item['endTime']),
-              'startHour': _toHour(item['startTime']),
-              'endHour': _toHour(item['endTime']),
+              'startLabel': '${startHour.toString().padLeft(2, '0')}:00',
+              'endLabel': '${endHour.toString().padLeft(2, '0')}:00',
+              'startHour': startHour,
+              'endHour': endHour,
               'rawDate': (item['date'] ?? dateKey).toString(),
               'isBooked': item['isBooked'] == true,
               'place': (item['place'] ?? '-').toString(),
+              'clinicId': (item['clinicId'] ?? '').toString(),
+              'clinicName': (item['clinicName'] ?? '').toString(),
             };
           }).toList()..sort((a, b) {
             final ka =
@@ -132,6 +157,8 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
             final slot =
                 (item['AvailableSlot'] as Map?)?.cast<String, dynamic>() ?? {};
             final dateKey = _resolveDate(slot['date'], slot['startTime']);
+            final startHour = _parseHour(slot['startTime'], slot['date']);
+            final endHour = _parseHour(slot['endTime'], slot['date']);
             return {
               'appointmentId': (item['appointmentId'] ?? '').toString(),
               'status': (item['status'] ?? 'SCHEDULED').toString(),
@@ -142,9 +169,11 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
               'patientImage':
                   item['patient']?['user']?['imageUrl']?.toString() ?? '',
               'dateLabel': _dateLabel(dateKey),
-              'startLabel': _formatHour(slot['startTime']),
-              'endLabel': _formatHour(slot['endTime']),
+              'startLabel': '${startHour.toString().padLeft(2, '0')}:00',
+              'endLabel': '${endHour.toString().padLeft(2, '0')}:00',
               'place': (slot['place'] ?? '-').toString(),
+              'clinicId': (slot['clinicId'] ?? '').toString(),
+              'clinicName': (slot['clinicName'] ?? '').toString(),
             };
           }).toList()..sort(
             (a, b) =>
@@ -366,36 +395,43 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'availability_mgmt_title'.tr(),
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.4,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: const Color(0xFFDAE7FF)),
-              ),
-              child: Text(
-                '${_slots.length} créneau${_slots.length > 1 ? 'x' : ''}',
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'availability_mgmt_title'.tr(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF475569),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                  letterSpacing: -0.4,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFFDAE7FF)),
+                ),
+                child: Text(
+                  '${_slots.length} créneau${_slots.length > 1 ? 'x' : ''}',
+                  style: const TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         ElevatedButton.icon(
           onPressed: _showAddSlotSheet,
@@ -649,6 +685,30 @@ class _GestionDisponibilitesPageState extends State<GestionDisponibilitesPage> {
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if ((slot['clinicName'] as String).isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.local_hospital_outlined,
+                          size: 13,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            slot['clinicName'] as String,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

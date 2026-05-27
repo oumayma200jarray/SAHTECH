@@ -126,6 +126,8 @@ class SpecialistDashboardService {
         map['patient'] as Map<String, dynamic>? ?? const <String, dynamic>{};
     final patientUser =
         patient['user'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+    final clinic =
+        (slot['clinic'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
 
     return DoctorAppointmentModel(
       appointmentId: _readInt(map['appointmentId'] ?? map['id']),
@@ -135,6 +137,9 @@ class SpecialistDashboardService {
           .toString(),
       patientImage: (patientUser['imageUrl'] ?? map['patientImage'])
           ?.toString(),
+      clinicName: (clinic['name'] ?? map['clinicName'] ?? '').toString(),
+      clinicAddress: (clinic['address'] ?? map['clinicAddress'] ?? '')
+          .toString(),
       date: _parseDate(slot['date'] ?? map['date']),
       startTime: _parseDate(slot['startTime'] ?? map['startTime']),
       endTime: _parseDate(slot['endTime'] ?? map['endTime']),
