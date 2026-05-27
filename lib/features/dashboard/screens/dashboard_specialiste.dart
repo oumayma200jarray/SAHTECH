@@ -3,7 +3,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:intl/intl.dart';
 import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/core/widgets/role_gate.dart';

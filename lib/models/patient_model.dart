@@ -31,13 +31,26 @@ class PatientModel {
     this.lastVisitDate,
   });
 
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double _toDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
+  }
+
   factory PatientModel.fromJson(Map<String, dynamic> json) {
     final patient = json['patient'] as Map<String, dynamic>?;
     final appointments = (patient?['appointments'] as List?) ?? [];
     final firstAppt =
         appointments.isNotEmpty ? appointments[0] as Map? : null;
     final slot = firstAppt?['AvailableSlot'] as Map?;
-
+    // age may live inside nested 'patient' or at the top level depending on the endpoint
+    final rawAge = patient?['age'] ?? json['age'];
     return PatientModel(
       userId: json['userId'] ?? '',
       fullName: json['fullName'] ?? '',
@@ -45,10 +58,10 @@ class PatientModel {
       phone: json['phone'] ?? '',
       address: json['address'] ?? '',
       gender: json['gender'] ?? '',
-      imageUrl: json['imageUrl'] ?? 'https://i.pravatar.cc/150?u=jean',
-      age: patient?['age'] ?? 0,
-      weight: (patient?['weight'] ?? 0.0).toDouble(),
-      height: (patient?['height'] ?? 0.0).toDouble(),
+      imageUrl: json['imageUrl'] ?? '',
+      age: _toInt(rawAge),
+      weight: _toDouble(patient?['weight'] ?? json['weight']),
+      height: _toDouble(patient?['height'] ?? json['height']),
       medicalDocument: (patient?['medicalDocuments'] as List? ?? [])
           .map((doc) => MedicalDocument.fromJson(doc))
           .toList(),

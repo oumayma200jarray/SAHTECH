@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sahtek/core/api/endpoint.dart';
 import 'package:sahtek/models/dashboard_models.dart';
 import 'package:sahtek/models/content_model.dart';
+import 'package:sahtek/models/post_model.dart';
 import 'package:sahtek/features/profile/services/profile_service.dart';
 import 'package:sahtek/models/doctor_models.dart';
 
@@ -257,24 +258,61 @@ class SpecialistDashboardService {
     }
   }
 
+  /// Récupère tous les posts du médecin connecté
+  static Future<List<PostModel>> getMyPosts() async {
+    try {
+      final response = await EndPoint.client.get(EndPoint.doctorMyPosts);
+      debugPrint('📝 getMyPosts raw response: $response');
+      final data = response is Map<String, dynamic>
+          ? (response['posts'] as List<dynamic>? ?? const [])
+          : _extractList(response);
+      debugPrint('📝 Posts response count: ${data.length}');
+      return data.map((item) {
+        final map = item is Map<String, dynamic> ? item : const <String, dynamic>{};
+        return PostModel.fromJson(map);
+      }).toList();
+    } catch (e) {
+      debugPrint('❌ Error fetching posts: $e');
+      return [];
+    }
+  }
+
   static Future<bool> publishDocument({
     required String title,
     required String description,
     required String type,
-    required File file,
+    File? file,
   }) async {
     try {
-      final response = await EndPoint.client.post(
-        EndPoint.doctorMyPosts,
-        body: {
-          'title': title,
-          'description': description,
-          'type': type,
-          'file': file,
-        },
-      );
+      dynamic response;
+
+      if (file != null) {
+        // Multipart upload for IMAGE / VIDEO posts
+        response = await EndPoint.client.uploadFile(
+          EndPoint.doctorMyPosts,
+          file: file,
+          fieldName: 'file',
+          fields: {
+            'title': title,
+            'description': description,
+            'type': type,
+          },
+          uploadTimeoutSeconds: 120,
+        );
+      } else {
+        // JSON body for ARTICLE posts (no file)
+        response = await EndPoint.client.post(
+          EndPoint.doctorMyPosts,
+          body: {
+            'title': title,
+            'description': description,
+            'type': type,
+          },
+        );
+      }
+
       debugPrint('📤 publishDocument response: $response');
-      return response is Map<String, dynamic> && response['postId'] != null;
+      return true;
     } catch (e) {
       debugPrint('❌ Error publishing document: $e');
       return false;

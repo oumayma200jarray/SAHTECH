@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConfig {
@@ -5,6 +6,10 @@ class AppConfig {
 
   static late final String apiBaseUrl;
   static late final String minioBaseUrl;
+
+  // Global navigator key used for programmatic navigation from services
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   /// Initialize AppConfig with values from .env file
   static Future<void> initialize() async {

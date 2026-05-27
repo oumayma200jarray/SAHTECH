@@ -26,7 +26,7 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
   }
 
   Future<void> _loadPatients() async {
-    final patients = await SpecialistService.fetchMyPatients();
+    final List<PatientModel> patients = await SpecialistService.fetchMyPatients();
     if (mounted) {
       setState(() {
         _allPatients = patients;
@@ -100,16 +100,6 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'management_portal'.tr(),
-                      style: TextStyle(
-                        color: Colors.blue[400],
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
                     Text(
                       'patients_heading'.tr(),
                       style: const TextStyle(

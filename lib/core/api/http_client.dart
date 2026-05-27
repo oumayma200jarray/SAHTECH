@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:sahtek/core/services/storage_service.dart';
+import 'package:sahtek/core/config/app_config.dart';
+import 'package:sahtek/core/api/endpoint.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -123,6 +126,35 @@ class HttpClient {
       throw ApiException('Forbidden: Access denied', statusCode: statusCode);
     } else if (statusCode == 404) {
       throw ApiException('Not found', statusCode: statusCode);
+    } else if (statusCode == 409) {
+      // Specific handling for 409 conflicts coming from the server
+      String errorMessage = 'Conflict';
+      if (body != null && body is Map && body.containsKey('message')) {
+        errorMessage = body['message'];
+      }
+
+      // If the server indicates the user is not found, we want to force a logout
+      // and route the app to the initial auth chooser. This is a global action
+      // so we use the AppConfig.navigatorKey to navigate without a BuildContext.
+      try {
+        if (errorMessage.toString().toLowerCase().contains('user not found')) {
+          // Clear local session and tokens
+          // Importing StorageService and AppConfig at top of file
+          StorageService.clearSession();
+          // Ensure HttpClient auth token cleared
+          EndPoint.client.clearAuthToken();
+
+          // Navigate to the initial page (chooser) and clear navigation stack
+          AppConfig.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+            '/',
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        // ignore navigation errors — we'll still throw the ApiException below
+      }
+
+      throw ApiException(errorMessage, statusCode: statusCode);
     } else {
       String errorMessage = 'Unexpected server error';
       if (body != null && body is Map && body.containsKey('message')) {
@@ -246,9 +278,11 @@ class HttpClient {
     required String fieldName,
     Map<String, String>? fields,
     bool requiresAuth = true,
+    int? uploadTimeoutSeconds,
   }) async {
     final url = Uri.parse(_buildUrl(endpoint));
     debugPrint('🌐 UPLOAD: $url');
+    final effectiveTimeout = uploadTimeoutSeconds ?? 120;
 
     Future<http.Response> makeRequest() async {
       final request = http.MultipartRequest('POST', url);
@@ -257,7 +291,6 @@ class HttpClient {
       }
       if (fields != null) request.fields.addAll(fields);
 
-      // detect mimetype from file extension 👈
       final extension = file.path.split('.').last.toLowerCase();
       final mimeTypes = {
         'jpg': 'image/jpeg',
@@ -266,9 +299,13 @@ class HttpClient {
         'webp': 'image/webp',
         'heic': 'image/heic',
         'gif': 'image/gif',
+        'mp4': 'video/mp4',
+        'mov': 'video/quicktime',
+        'avi': 'video/x-msvideo',
+        'mkv': 'video/x-matroska',
+        'webm': 'video/webm',
       };
-      final contentType =
-          mimeTypes[extension] ?? 'image/jpeg'; // default to jpeg
+      final contentType = mimeTypes[extension] ?? 'application/octet-stream';
 
       request.files.add(
         http.MultipartFile(
@@ -276,12 +313,12 @@ class HttpClient {
           file.openRead(),
           await file.length(),
           filename: file.path.split('/').last,
-          contentType: MediaType.parse(contentType), // 👈 set correct mimetype
+          contentType: MediaType.parse(contentType),
         ),
       );
 
       final streamedResponse = await request.send().timeout(
-        Duration(seconds: timeoutDuration),
+        Duration(seconds: effectiveTimeout),
       );
       return http.Response.fromStream(streamedResponse);
     }

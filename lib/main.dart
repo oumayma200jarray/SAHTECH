@@ -98,11 +98,13 @@ void main() async {
             ChangeNotifierProvider(create: (_) => SignupController()),
             ChangeNotifierProvider(create: (_) => ProfileController()),
             ChangeNotifierProvider(create: (_) => GoogleAuthController()),
-            ChangeNotifierProvider(create: (_) {
-              final notifier = AppointmentNotifier();
-              ChatRealtimeService.instance.appointmentNotifier = notifier;
-              return notifier;
-            }),
+            ChangeNotifierProvider(
+              create: (_) {
+                final notifier = AppointmentNotifier();
+                ChatRealtimeService.instance.appointmentNotifier = notifier;
+                return notifier;
+              },
+            ),
             ChangeNotifierProvider(create: (_) => ExercisesController()),
             ChangeNotifierProvider(create: (_) => PatientExercisesController()),
           ],
@@ -120,6 +122,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SAHTECH',
+      navigatorKey: AppConfig.navigatorKey,
       debugShowCheckedModeBanner: false,
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
@@ -130,11 +133,14 @@ class MyApp extends StatelessWidget {
         '/inscription': (context) => Inscription(),
         '/otp-verification': (context) => const OtpVerificationPage(),
         '/accueil': (context) => AccueilPage(),
-        '/selection_test_ia': (context) => TrackingNotifier.provide(child: const SelectionTestIAPage()),
-        '/preparation_test_ia': (context) => TrackingNotifier.provide(child: const PreparationTestIAPage()),
+        '/selection_test_ia': (context) =>
+            TrackingNotifier.provide(child: const SelectionTestIAPage()),
+        '/preparation_test_ia': (context) =>
+            TrackingNotifier.provide(child: const PreparationTestIAPage()),
         '/localisation_douleur': (context) => LocalisationDouleurPage(),
         '/exercices_zone': (context) => ExercicesZonePage(),
-        '/resultat_test_ia': (context) => TrackingNotifier.provide(child: const ResultatsTestIAPage()),
+        '/resultat_test_ia': (context) =>
+            TrackingNotifier.provide(child: const ResultatsTestIAPage()),
         '/trouver_specialiste': (context) => TrouverSpecialistePage(),
         '/reserver_rdv': (context) => ReserverRDVPage(),
         '/mes_rdv': (context) => const MesRdvPage(),
@@ -150,7 +156,8 @@ class MyApp extends StatelessWidget {
         '/change-password': (context) => const ChangePasswordPage(),
         '/security_privacy': (context) => const SecurityPrivacyPage(),
         '/notifications': (context) => const NotificationsPage(),
-        '/suivi_ia_direct': (context) => TrackingNotifier.provide(child: const SuiviIADirectPage()),
+        '/suivi_ia_direct': (context) =>
+            TrackingNotifier.provide(child: const SuiviIADirectPage()),
         '/gestion_disponibilites': (context) =>
             RoleGuard(child: const GestionDisponibilitesPage()),
         '/specialiste_details': (context) => const SpecialisteDetailsPage(),
@@ -162,10 +169,8 @@ class MyApp extends StatelessWidget {
             RoleGuard(child: const SpecialistMedicalFolderPage()),
         '/medical_category_detail': (context) =>
             const MedicalCategoryDetailPage(),
-        '/my_clinics': (context) =>
-            RoleGuard(child: const MyClinicsPage()),
-        '/exercises': (context) =>
-            RoleGuard(child: const ExercisesPage()),
+        '/my_clinics': (context) => RoleGuard(child: const MyClinicsPage()),
+        '/exercises': (context) => RoleGuard(child: const ExercisesPage()),
         '/patient/exercises': (context) => const ExercisesListPage(),
       },
     );
