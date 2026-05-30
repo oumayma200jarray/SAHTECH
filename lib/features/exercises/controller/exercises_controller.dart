@@ -36,7 +36,34 @@ class ExercisesController extends ChangeNotifier {
     notifyListeners();
     try {
       final data = await EndPoint.client.get(EndPoint.doctorExercises);
-      myExercises = (data as List? ?? [])
+
+      // Normalize response: backend may return a List or a Map containing the list
+      List<dynamic> list;
+      if (data is List) {
+        list = data;
+      } else if (data is Map) {
+        // Common keys that may contain the array
+        if (data.containsKey('exercises') && data['exercises'] is List) {
+          list = data['exercises'] as List<dynamic>;
+        } else if (data.containsKey('data') && data['data'] is List) {
+          list = data['data'] as List<dynamic>;
+        } else if (data.containsKey('items') && data['items'] is List) {
+          list = data['items'] as List<dynamic>;
+        } else if (data.containsKey('results') && data['results'] is List) {
+          list = data['results'] as List<dynamic>;
+        } else {
+          // Try to find the first List value inside the map
+          final found = data.values.firstWhere(
+            (v) => v is List,
+            orElse: () => <dynamic>[],
+          );
+          list = found is List ? found as List<dynamic> : <dynamic>[];
+        }
+      } else {
+        list = <dynamic>[];
+      }
+
+      myExercises = list
           .whereType<Map<String, dynamic>>()
           .map(ExerciseModel.fromJson)
           .toList();
@@ -56,7 +83,27 @@ class ExercisesController extends ChangeNotifier {
     notifyListeners();
     try {
       final data = await EndPoint.client.get(EndPoint.publicExercises);
-      publicExercises = (data as List? ?? [])
+
+      List<dynamic> list;
+      if (data is List) {
+        list = data;
+      } else if (data is Map) {
+        if (data.containsKey('exercises') && data['exercises'] is List) {
+          list = data['exercises'] as List<dynamic>;
+        } else if (data.containsKey('data') && data['data'] is List) {
+          list = data['data'] as List<dynamic>;
+        } else {
+          final found = data.values.firstWhere(
+            (v) => v is List,
+            orElse: () => <dynamic>[],
+          );
+          list = found is List ? found as List<dynamic> : <dynamic>[];
+        }
+      } else {
+        list = <dynamic>[];
+      }
+
+      publicExercises = list
           .whereType<Map<String, dynamic>>()
           .map(ExerciseModel.fromJson)
           .toList();

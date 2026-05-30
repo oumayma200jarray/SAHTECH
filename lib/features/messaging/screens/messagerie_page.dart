@@ -9,7 +9,7 @@ import 'package:sahtek/core/utils/url_helper.dart';
 import 'messagerie_details_page.dart';
 
 class MessageriePage extends StatefulWidget {
-  const MessageriePage({Key? key}) : super(key: key);
+  const MessageriePage({super.key});
 
   @override
   State<MessageriePage> createState() => _MessageriePageState();
@@ -97,19 +97,6 @@ class _MessageriePageState extends State<MessageriePage> {
             fontSize: 20,
           ),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundImage:
-                  UrlHelper.fixImageUrl(profile.imageUrl).isNotEmpty
-                  ? NetworkImage(UrlHelper.fixImageUrl(profile.imageUrl))
-                  : null,
-              backgroundColor: Colors.grey[200],
-            ),
-          ),
-        ],
       ),
       body: FutureBuilder<List<ConversationPreview>>(
         future: _conversationsFuture,

@@ -228,6 +228,11 @@ class GlobalDataProvider extends ChangeNotifier {
   // Load profile from API and set into provider. Chooses patient vs specialist by stored role.
   Future<void> loadProfile() async {
     try {
+      // Clear stale in-memory profile first so account switches don't briefly
+      // show the previous user's name while the new profile is loading.
+      _profile = PatientModel.empty();
+      notifyListeners();
+
       final role = await SharedPreferences.getInstance().then(
         (p) => p.getString('role') ?? '',
       );

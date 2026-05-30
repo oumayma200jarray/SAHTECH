@@ -13,7 +13,7 @@ class PatientModel {
   final List<MedicalDocument> medicalDocument;
   final String imageUrl;
   final String? primaryCondition; // from appointments[0].reason
-  final String? lastVisitDate;    // from appointments[0].AvailableSlot.date (ISO)
+  final String? lastVisitDate; // from appointments[0].AvailableSlot.date (ISO)
 
   PatientModel({
     required this.userId,
@@ -44,25 +44,66 @@ class PatientModel {
   }
 
   factory PatientModel.fromJson(Map<String, dynamic> json) {
-    final patient = json['patient'] as Map<String, dynamic>?;
-    final appointments = (patient?['appointments'] as List?) ?? [];
-    final firstAppt =
-        appointments.isNotEmpty ? appointments[0] as Map? : null;
-    final slot = firstAppt?['AvailableSlot'] as Map?;
+    final Map<String, dynamic>? patient = (json['patient'] is Map)
+        ? (json['patient'] as Map<String, dynamic>)
+        : null;
+
+    // Some endpoints return nested patient data, others return flat objects.
+    // We try multiple fallbacks for each field to be resilient to API shape changes.
+    final appointments =
+        ((patient?['appointments'] ?? json['appointments']) as List?) ?? [];
+    final firstAppt = appointments.isNotEmpty
+        ? (appointments[0] as Map?)
+        : null;
+    final slot = (firstAppt != null && firstAppt['AvailableSlot'] is Map)
+        ? (firstAppt['AvailableSlot'] as Map?)
+        : null;
+
     // age may live inside nested 'patient' or at the top level depending on the endpoint
     final rawAge = patient?['age'] ?? json['age'];
+
+    // Resolve fields with fallbacks
+    final resolvedUserId =
+        json['userId'] ??
+        json['id'] ??
+        patient?['userId'] ??
+        patient?['id'] ??
+        '';
+    final resolvedFullName =
+        patient?['fullName'] ??
+        patient?['name'] ??
+        json['fullName'] ??
+        json['name'] ??
+        '';
+    final resolvedEmail = patient?['email'] ?? json['email'] ?? '';
+    final resolvedPhone = patient?['phone'] ?? json['phone'] ?? '';
+    final resolvedAddress = patient?['address'] ?? json['address'] ?? '';
+    final resolvedGender = patient?['gender'] ?? json['gender'] ?? '';
+    final resolvedImage =
+        patient?['imageUrl'] ??
+        json['imageUrl'] ??
+        patient?['avatar'] ??
+        json['avatar'] ??
+        '';
+
+    // medical documents can be under patient or at top-level
+    final rawMedicalDocuments =
+        (patient?['medicalDocuments'] ?? json['medicalDocuments']) as List? ??
+        [];
+
     return PatientModel(
-      userId: json['userId'] ?? '',
-      fullName: json['fullName'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
-      address: json['address'] ?? '',
-      gender: json['gender'] ?? '',
-      imageUrl: json['imageUrl'] ?? '',
+      userId: resolvedUserId.toString(),
+      fullName: resolvedFullName.toString(),
+      email: resolvedEmail.toString(),
+      phone: resolvedPhone.toString(),
+      address: resolvedAddress.toString(),
+      gender: resolvedGender.toString(),
+      imageUrl: resolvedImage.toString(),
       age: _toInt(rawAge),
       weight: _toDouble(patient?['weight'] ?? json['weight']),
       height: _toDouble(patient?['height'] ?? json['height']),
-      medicalDocument: (patient?['medicalDocuments'] as List? ?? [])
+      medicalDocument: rawMedicalDocuments
+          .whereType<Map<String, dynamic>>()
           .map((doc) => MedicalDocument.fromJson(doc))
           .toList(),
       primaryCondition: firstAppt?['reason']?.toString(),

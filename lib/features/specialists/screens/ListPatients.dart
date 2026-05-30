@@ -4,6 +4,12 @@ import 'package:sahtek/models/patient_model.dart';
 import 'package:sahtek/features/specialists/services/specialist_service.dart';
 import 'package:sahtek/core/widgets/specialist_bottom_nav_bar.dart';
 
+// Helper: extract a translation label pattern and remove numeric placeholders like {0}
+String getLabelFromPattern(String key) {
+  final raw = key.tr();
+  return raw.replaceAll(RegExp(r'\{\d+\}'), '').trim();
+}
+
 class ListePatientsPage extends StatefulWidget {
   const ListePatientsPage({super.key});
 
@@ -26,7 +32,8 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
   }
 
   Future<void> _loadPatients() async {
-    final List<PatientModel> patients = await SpecialistService.fetchMyPatients();
+    final List<PatientModel> patients =
+        await SpecialistService.fetchMyPatients();
     if (mounted) {
       setState(() {
         _allPatients = patients;
@@ -74,7 +81,7 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -104,14 +111,31 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
                       'patients_heading'.tr(),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 28,
-                        color: Color(0xFF1A1C1E),
+                        fontSize: 24,
+                        color: Color(0xFF0A0F1E),
                       ),
                     ),
                     if (!_isLoading)
-                      Text(
-                        'patients_count'.tr(args: ['${_allPatients.length}']),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            getLabelFromPattern('patients_count'),
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_allPatients.length}',
+                            style: const TextStyle(
+                              color: Color(0xFF0052FF),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     const SizedBox(height: 20),
                     _buildSearchBar(),
@@ -120,6 +144,7 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
                 ),
               ),
             ),
+
             if (_isLoading)
               const SliverToBoxAdapter(
                 child: Padding(
@@ -127,7 +152,7 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
                   child: Center(
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Color(0xFF0D54F2),
+                      color: Color(0xFF0052FF),
                     ),
                   ),
                 ),
@@ -198,9 +223,10 @@ class _ListePatientsPageState extends State<ListePatientsPage> {
       margin: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.people_outline, color: Colors.grey[300], size: 48),
           const SizedBox(height: 16),
@@ -233,14 +259,14 @@ class _PatientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
+            color: const Color(0xFF0052FF).withOpacity(0.06),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -248,18 +274,16 @@ class _PatientCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header row: avatar + name/age + badge ──
+          // Header row: avatar + name/age + badge
           Row(
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor: const Color(
-                  0xFF0D54F2,
-                ).withValues(alpha: 0.12),
+                backgroundColor: const Color(0xFF0052FF).withOpacity(0.12),
                 child: Text(
                   initials,
                   style: const TextStyle(
-                    color: Color(0xFF0D54F2),
+                    color: Color(0xFF0052FF),
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -275,30 +299,47 @@ class _PatientCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: Color(0xFF1A1C1E),
+                        color: Color(0xFF0A0F1E),
                       ),
                     ),
                     if (patient.age > 0)
-                      Text(
-                        'patients_years'.tr(args: ['${patient.age}']),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                      Row(
+                        children: [
+                          Text(
+                            '${patient.age}',
+                            style: const TextStyle(
+                              color: Color(0xFF0052FF),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            getLabelFromPattern('patients_years'),
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                 ),
               ),
+
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.12),
+                  color: const Color(0xFF10B981).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   'patients_active'.tr(),
                   style: const TextStyle(
-                    color: Colors.green,
+                    color: Color(0xFF10B981),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -306,18 +347,19 @@ class _PatientCard extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 14),
 
-          // ── Info rows ──
           _InfoRow(
             label: 'patients_condition'.tr(),
             value: patient.primaryCondition ?? '—',
           ),
           const SizedBox(height: 6),
           _InfoRow(label: 'patients_last_visit'.tr(), value: formattedDate),
+
           const SizedBox(height: 16),
 
-          // ── Action buttons ──
+          // Action buttons
           Row(
             children: [
               Expanded(
@@ -326,9 +368,13 @@ class _PatientCard extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onAddMedicalFolder,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE8ECF0),
-                      foregroundColor: const Color(0xFF3A3F47),
+                      backgroundColor: const Color(0xFFFFFFFF),
+                      foregroundColor: const Color(0xFF0A0F1E),
                       elevation: 0,
+                      side: const BorderSide(
+                        color: Color(0xFF0052FF),
+                        width: 1,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -338,6 +384,7 @@ class _PatientCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
+                        color: Color(0xFF0052FF),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -351,7 +398,7 @@ class _PatientCard extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onAddExercise,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D54F2),
+                      backgroundColor: const Color(0xFF0052FF),
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -396,7 +443,7 @@ class _InfoRow extends StatelessWidget {
           child: Text(
             value,
             style: const TextStyle(
-              color: Color(0xFF1A1C1E),
+              color: Color(0xFF0A0F1E),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),

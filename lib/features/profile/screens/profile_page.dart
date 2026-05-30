@@ -4,6 +4,10 @@ import 'package:sahtek/core/services/storage_service.dart';
 import 'package:sahtek/core/utils/url_helper.dart';
 import 'package:sahtek/providers/global_data_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:iconsax/iconsax.dart';
+
+const Color _primaryBlue = Color(0xFF0052FF);
+const Color _gradientEnd = Color(0xFF00A3FF);
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -36,23 +40,28 @@ class _ProfilePageState extends State<ProfilePage> {
     final profile = context.watch<GlobalDataProvider>().profile;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.blue, size: 20),
+          icon: const Icon(
+            Iconsax.arrow_left_2,
+            color: Color(0xFF0052FF),
+            size: 20,
+          ),
           onPressed: () {
             if (Navigator.canPop(context)) {
               Navigator.pop(context);
             } else {
               // Si on ne peut pas pop (ex: remplacement de route), on retourne à l'accueil selon le rôle
-              final isSpecialist = _role?.toUpperCase() == 'SPECIALIST' || 
-                                   _role?.toUpperCase() == 'SPECIALISTE' || 
-                                   _role?.toUpperCase() == 'DOCTOR';
+              final isSpecialist =
+                  _role?.toUpperCase() == 'SPECIALIST' ||
+                  _role?.toUpperCase() == 'SPECIALISTE' ||
+                  _role?.toUpperCase() == 'DOCTOR';
               Navigator.pushReplacementNamed(
-                context, 
-                isSpecialist ? '/dashboard_specialiste' : '/accueil'
+                context,
+                isSpecialist ? '/dashboard_specialiste' : '/accueil',
               );
             }
           },
@@ -60,8 +69,8 @@ class _ProfilePageState extends State<ProfilePage> {
         title: Text(
           'profile'.tr(),
           style: const TextStyle(
-            color: Colors.black,
-            fontSize: 18,
+            color: Color(0xFF0A0F1E),
+            fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -75,39 +84,66 @@ class _ProfilePageState extends State<ProfilePage> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: [
+                  // Avatar with gradient background when no image
                   Stack(
                     children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.blue.withOpacity(0.1),
-                        backgroundImage:
-                            _imageUrl != null && _imageUrl!.isNotEmpty
-                            ? NetworkImage(UrlHelper.fixImageUrl(_imageUrl!))
-                            : null,
-                        child: _imageUrl == null || _imageUrl!.isEmpty
-                            ? Text(
-                                profile.fullName.isNotEmpty
-                                    ? profile.fullName[0].toUpperCase()
-                                    : 'U',
-                                style: const TextStyle(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: _imageUrl == null || _imageUrl!.isEmpty
+                              ? const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF0052FF),
+                                    Color(0xFF00A3FF),
+                                  ],
+                                )
+                              : null,
+                        ),
+                        child: ClipOval(
+                          child: _imageUrl != null && _imageUrl!.isNotEmpty
+                              ? Image.network(
+                                  UrlHelper.fixImageUrl(_imageUrl!),
+                                  fit: BoxFit.cover,
+                                  width: 100,
+                                  height: 100,
+                                )
+                              : Center(
+                                  child: Text(
+                                    profile.fullName.isNotEmpty
+                                        ? profile.fullName[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 ),
-                              )
-                            : null,
+                        ),
                       ),
                       Positioned(
                         right: 0,
                         bottom: 0,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.blue,
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: _primaryBlue,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _primaryBlue.withOpacity(0.24),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: const Icon(
-                            Icons.camera_alt,
+                            Iconsax.camera,
                             color: Colors.white,
                             size: 16,
                           ),
@@ -119,10 +155,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 4,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
+                      color: _primaryBlue.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -130,10 +166,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           ? _role!.toLowerCase().tr()
                           : 'patient'.tr(),
                       style: const TextStyle(
-                        color: Colors.blue,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
+                        color: Color(0xFF0052FF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.6,
                       ),
                     ),
                   ),
@@ -196,9 +232,9 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'version'.tr(),
-              style: const TextStyle(color: Colors.grey, fontSize: 10),
+            const Text(
+              '1.0.0',
+              style: TextStyle(color: Colors.grey, fontSize: 10),
             ),
           ],
         ),
@@ -213,10 +249,10 @@ class _ProfilePageState extends State<ProfilePage> {
         padding: const EdgeInsets.only(left: 20, bottom: 12),
         child: Text(
           title,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: const TextStyle(
+            color: Color(0xFF64748B),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
             letterSpacing: 1,
           ),
         ),
@@ -230,22 +266,34 @@ class _ProfilePageState extends State<ProfilePage> {
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 1),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.1))),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052FF).withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: ListTile(
-        leading: Icon(icon, color: Colors.blue[700]),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Icon(icon, color: _primaryBlue, size: 20),
         title: Text(
           title,
           style: const TextStyle(
             fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF1A1C1E),
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF0A0F1E),
           ),
         ),
-        trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+        trailing: const Icon(
+          Iconsax.arrow_right,
+          color: Color(0xFF94A3B8),
+          size: 20,
+        ),
         onTap: onTap,
       ),
     );
