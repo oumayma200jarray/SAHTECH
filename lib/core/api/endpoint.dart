@@ -131,8 +131,21 @@ class EndPoint {
   static String doctorExerciseById(String id) => 'doctors/exercises/$id';
   static const String doctorAssignExercise = 'doctors/assign-exercise';
 
+  // ─── Patient Sessions ────────────────────────────────────────────────────
+  static const String userSessions = 'users/sessions';
+  static String userSessionById(String id) => 'users/sessions/$id';
+
   // ─── Patient Assigned Exercises ──────────────────────────────────────────
   static const String assignedExercises = 'users/assignedexercise';
   static String markAssignmentComplete(String id) => 'users/assignedexercise/$id';
   static const String exercisesWebSocketNamespace = '/exercises';
+
+  // ─── AI Chat ─────────────────────────────────────────────────────────────────
+  static const String aiHistory = 'chat/ai/history';
+  static const String aiAsk = 'chat/ai/ask';
+
+  // ─── Reviews ─────────────────────────────────────────────────────────────────
+  static const String myReviews = 'users/reviews/mine';
+  static const String createReview = 'users/reviews';
+  static String deleteMyReview(String id) => 'users/reviews/$id';
 }

@@ -209,6 +209,16 @@ class _ProfilePageState extends State<ProfilePage> {
               title: 'notifications'.tr(),
               onTap: () => Navigator.pushNamed(context, '/notifications'),
             ),
+            const SizedBox(height: 24),
+
+            // Avis & Langue
+            _buildSectionTitle('Votre avis'),
+            _buildMenuItem(
+              icon: Icons.rate_review_outlined,
+              title: 'Mes avis',
+              onTap: () => Navigator.pushNamed(context, '/my_reviews'),
+            ),
+            _buildLanguageItem(context),
             const SizedBox(height: 40),
 
             // Déconnexion
@@ -255,6 +265,126 @@ class _ProfilePageState extends State<ProfilePage> {
             fontWeight: FontWeight.w600,
             letterSpacing: 1,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageItem(BuildContext context) {
+    final current = context.locale.languageCode == 'fr' ? 'Français' : 'English';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryBlue.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: const Icon(Icons.language_rounded, color: _primaryBlue, size: 20),
+        title: const Text(
+          'Langue',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF0A0F1E)),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(current, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+            const SizedBox(width: 6),
+            const Icon(Iconsax.arrow_right, color: Color(0xFF94A3B8), size: 20),
+          ],
+        ),
+        onTap: () => _showLanguagePicker(context),
+      ),
+    );
+  }
+
+  void _showLanguagePicker(BuildContext context) {
+    final locales = [
+      {'code': 'fr', 'label': 'Français', 'flag': '🇫🇷'},
+      {'code': 'en', 'label': 'English', 'flag': '🇬🇧'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Choisir la langue',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0A0F1E),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...locales.map((l) {
+              final isSelected = context.locale.languageCode == l['code'];
+              return GestureDetector(
+                onTap: () {
+                  context.setLocale(Locale(l['code']!));
+                  Navigator.pop(ctx);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? _primaryBlue.withValues(alpha: 0.07)
+                        : const Color(0xFFF8FAFF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? _primaryBlue : Colors.transparent,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(l['flag']!, style: const TextStyle(fontSize: 22)),
+                      const SizedBox(width: 12),
+                      Text(
+                        l['label']!,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? _primaryBlue : const Color(0xFF0A0F1E),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (isSelected)
+                        const Icon(Icons.check_circle_rounded, color: _primaryBlue, size: 20),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
         ),
       ),
     );

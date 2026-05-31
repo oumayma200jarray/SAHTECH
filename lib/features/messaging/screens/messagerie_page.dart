@@ -7,6 +7,7 @@ import 'package:sahtek/core/widgets/custom_bottom_nav_bar.dart';
 import 'package:sahtek/services/chat_service.dart';
 import 'package:sahtek/core/utils/url_helper.dart';
 import 'messagerie_details_page.dart';
+import 'ai_chat_page.dart';
 
 class MessageriePage extends StatefulWidget {
   const MessageriePage({super.key});
@@ -123,6 +124,7 @@ class _MessageriePageState extends State<MessageriePage> {
             children: [
               _buildSearchBar(),
               _buildRecentHeader(),
+              _buildAiTile(),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _refreshConversations,
@@ -152,6 +154,76 @@ class _MessageriePageState extends State<MessageriePage> {
         },
       ),
       bottomNavigationBar: const CustomBottomNavBar(currentIndex: 3),
+    );
+  }
+
+  Widget _buildAiTile() {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AiChatPage()),
+      ),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.psychology_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Assistant IA',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Posez une question médicale',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+          ],
+        ),
+      ),
     );
   }
 

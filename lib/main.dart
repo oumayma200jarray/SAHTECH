@@ -48,6 +48,7 @@ import 'package:sahtek/features/exercises/controller/patient_exercises_controlle
 import 'package:sahtek/features/exercises/pages/exercises_list_page.dart';
 import 'package:sahtek/features/exercises/screen/exercises_page.dart';
 import 'package:sahtek/services/exercise_socket_service.dart';
+import 'package:sahtek/features/profile/screens/my_reviews_page.dart';
 import 'package:sahtek/features/specialists/screens/ListPatients.dart';
 import 'package:sahtek/providers/appointment_notifier.dart';
 import 'package:sahtek/features/specialists/screens/publier_exercice.dart';
@@ -172,6 +173,7 @@ class MyApp extends StatelessWidget {
         '/my_clinics': (context) => RoleGuard(child: const MyClinicsPage()),
         '/exercises': (context) => RoleGuard(child: const ExercisesPage()),
         '/patient/exercises': (context) => const ExercisesListPage(),
+        '/my_reviews': (context) => const MyReviewsPage(),
       },
     );
   }
